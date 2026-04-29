@@ -4,25 +4,26 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 239 84% 67%;
+    /* Dark blue-gray — Linear-style */
+    --background: 240 15% 14%;         /* main content */
+    --foreground: 240 10% 90%;        /* #e1e2ea  primary text */
+    --card: 240 22% 9%;               /* sidebar / panels — darker */
+    --card-foreground: 240 10% 90%;
+    --popover: 240 17% 12%;           /* #181928  popovers */
+    --popover-foreground: 240 10% 90%;
+    --primary: 244 76% 65%;           /* #6272ef  indigo accent */
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
+    --secondary: 240 15% 16%;         /* #1e2030  elevated surfaces / hover */
+    --secondary-foreground: 240 10% 90%;
+    --muted: 240 15% 16%;
+    --muted-foreground: 240 8% 57%;   /* #898aa0  dimmed text */
+    --accent: 240 15% 16%;
+    --accent-foreground: 240 10% 90%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 239 84% 67%;
+    --border: 240 13% 19%;            /* #252638  subtle dividers */
+    --input: 240 15% 16%;
+    --ring: 244 76% 65%;
     --radius: 0.5rem;
   }
 }
@@ -39,9 +40,47 @@
   }
 }
 
+/* BlockNote — force blue-gray palette, override greenish dark theme defaults */
+.bn-editor {
+  background-color: hsl(240, 15%, 14%) !important;
+  caret-color: hsl(240, 10%, 90%);
+}
+
+.bn-editor .ProseMirror {
+  background-color: hsl(240, 15%, 14%) !important;
+}
+
+/* Inline code */
+.bn-editor code {
+  background-color: hsl(240, 18%, 18%) !important;
+  color: hsl(240, 10%, 86%) !important;
+  border-radius: 4px;
+}
+
+/* Code blocks */
+.bn-editor pre,
+.bn-editor [data-content-type="codeBlock"] {
+  background-color: hsl(240, 20%, 10%) !important;
+  color: hsl(240, 10%, 86%) !important;
+  border: 1px solid hsl(240, 13%, 22%) !important;
+  border-radius: 8px !important;
+}
+
+/* Side menu / drag handle area */
+.bn-side-menu {
+  color: hsl(240, 8%, 40%) !important;
+}
+
+/* Slash menu / suggestion menu */
+.bn-menu-container,
+[data-radix-popper-content-wrapper] .bn-suggestion-menu {
+  background-color: hsl(240, 17%, 16%) !important;
+  border-color: hsl(240, 13%, 22%) !important;
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -49,10 +88,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(217 33% 25%);
-  border-radius: 4px;
+  background: hsl(240 6% 22%);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(217 33% 35%);
+  background: hsl(240 6% 30%);
 }

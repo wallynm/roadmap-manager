@@ -28,6 +28,17 @@ export function useRemoveRepo() {
   });
 }
 
+export function useUpdateRepo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name, config }: { id: string; name: string; config: string }) =>
+      api.updateRepo(id, name, config),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["repos"] });
+    },
+  });
+}
+
 export function useRescanRepo() {
   const queryClient = useQueryClient();
   return useMutation({

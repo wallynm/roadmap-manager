@@ -96,7 +96,7 @@ export function DepGraph({ items, onItemClick }: DepGraphProps) {
       id: item.id,
       data: { label: `${item.external_id} — ${item.title}`, item },
       style: {
-        background: "hsl(222 47% 10%)",
+        background: "hsl(240 17% 12%)",
         border: `2px solid ${getStatusColor(item.status)}`,
         color: "#e2e8f0",
         borderRadius: "8px",

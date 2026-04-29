@@ -1,11 +1,12 @@
-import { X, Play, CheckCircle, XCircle, RotateCcw, Copy } from "lucide-react";
+import { X, Play, CheckCircle, XCircle, RotateCcw, Save } from "lucide-react";
 import type { Item, Priority } from "@/types";
 import { STATUS_CONFIG, PRIORITY_CONFIG, parseLabels, parseDependsOn, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { useStartItem, useCompleteItem, useCancelItem, usePlanItem } from "@/hooks/useItems";
-import { useState } from "react";
+import { useStartItem, useCompleteItem, useCancelItem, usePlanItem, useUpdateItem } from "@/hooks/useItems";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import { BlockNoteEditor } from "@/components/editor/BlockNoteEditor";
+import { Button } from "@/components/ui/Button";
 
 interface ItemDetailsModalProps {
   item: Item | null;
@@ -17,43 +18,88 @@ export function ItemDetailsModal({ item, onClose }: ItemDetailsModalProps) {
   const completeItem = useCompleteItem();
   const cancelItem = useCancelItem();
   const planItem = usePlanItem();
+  const updateItem = useUpdateItem();
+
   const [note, setNote] = useState("");
   const [showNoteInput, setShowNoteInput] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const bodyRef = useRef("");
 
-  if (!item) return null;
+  useEffect(() => {
+    if (item) {
+      setEditTitle(item.title);
+      bodyRef.current = item.body ?? "";
+      setNote("");
+      setShowNoteInput(false);
+    }
+  }, [item?.id]);
+
+  if (!item) {
+    return null;
+  }
 
   const statusCfg = STATUS_CONFIG[item.status];
   const priorityCfg = item.priority ? PRIORITY_CONFIG[item.priority as Priority] : null;
   const labels = parseLabels(item.labels);
   const deps = parseDependsOn(item.depends_on);
 
+  const handleSave = () => {
+    updateItem.mutate(
+      { id: item.id, title: editTitle, body: bodyRef.current },
+      { onSuccess: () => toast.success(`${item.external_id} saved`) }
+    );
+  };
+
   const handleComplete = () => {
     if (showNoteInput && note) {
-      completeItem.mutate({ id: item.id, note }, { onSuccess: () => { onClose(); toast.success(`${item.external_id} completed`); } });
+      completeItem.mutate(
+        { id: item.id, note },
+        { onSuccess: () => { onClose(); toast.success(`${item.external_id} completed`); } }
+      );
     } else {
       setShowNoteInput(true);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{item.type}</span>
             <span>›</span>
             <span className="font-mono">{item.external_id}</span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-accent rounded"><X className="w-4 h-4" /></button>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(85vh-8rem)] p-6 space-y-6">
-          <h2 className="text-xl font-semibold">{item.title}</h2>
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 p-6 space-y-5">
+          <input
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            className="w-full bg-transparent border-0 border-b border-border px-0 py-1 text-xl font-semibold focus:outline-none focus:border-primary"
+          />
 
           <div className="flex items-center gap-3 flex-wrap">
-            <span className={cn("text-sm px-2 py-1 rounded bg-secondary", statusCfg.color)}>
-              {statusCfg.emoji} {statusCfg.label}
-            </span>
+            {(() => {
+              const Icon = statusCfg.icon;
+              return (
+                <span className={cn("flex items-center gap-1.5 text-sm px-2 py-1 rounded bg-secondary", statusCfg.color)}>
+                  <Icon className="w-3.5 h-3.5" />
+                  {statusCfg.label}
+                </span>
+              );
+            })()}
             {priorityCfg && (
               <span className={cn("text-sm px-2 py-1 rounded", priorityCfg.bgColor, priorityCfg.color)}>
                 {item.priority}
@@ -71,9 +117,12 @@ export function ItemDetailsModal({ item, onClose }: ItemDetailsModalProps) {
           </div>
 
           <div className="border-t border-border pt-4">
-            <div className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown>{item.body}</ReactMarkdown>
-            </div>
+            <BlockNoteEditor
+              key={item.id}
+              markdown={item.body ?? ""}
+              editable
+              onChange={(md) => { bodyRef.current = md; }}
+            />
           </div>
 
           {deps.length > 0 && (
@@ -102,38 +151,43 @@ export function ItemDetailsModal({ item, onClose }: ItemDetailsModalProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-2 px-6 py-4 border-t border-border">
-          {item.status === "backlog" || item.status === "todo" ? (
-            <button
+        {/* Footer */}
+        <div className="flex items-center gap-2 px-6 py-4 border-t border-border shrink-0">
+          <Button variant="primary" loading={updateItem.isPending} onClick={handleSave}>
+            <Save className="w-3.5 h-3.5" />
+            Save
+          </Button>
+
+          {(item.status === "backlog" || item.status === "todo") && (
+            <Button
+              variant="warning"
               onClick={() => startItem.mutate(item.id, { onSuccess: () => { onClose(); toast.success(`${item.external_id} started`); } })}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-500/20 text-amber-400 rounded hover:bg-amber-500/30"
             >
               <Play className="w-3.5 h-3.5" /> Start
-            </button>
-          ) : null}
+            </Button>
+          )}
+
           {item.status !== "done" && item.status !== "canceled" && item.status !== "duplicate" && (
             <>
-              <button
-                onClick={handleComplete}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30"
-              >
+              <Button variant="success" onClick={handleComplete}>
                 <CheckCircle className="w-3.5 h-3.5" /> Complete
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 onClick={() => cancelItem.mutate({ id: item.id }, { onSuccess: () => { onClose(); toast.success(`${item.external_id} canceled`); } })}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
               >
                 <XCircle className="w-3.5 h-3.5" /> Cancel
-              </button>
+              </Button>
             </>
           )}
+
           {(item.status === "done" || item.status === "canceled") && (
-            <button
+            <Button
+              variant="info"
               onClick={() => planItem.mutate(item.id, { onSuccess: () => { onClose(); toast.success(`${item.external_id} re-opened`); } })}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-sky-500/20 text-sky-400 rounded hover:bg-sky-500/30"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Re-open
-            </button>
+            </Button>
           )}
         </div>
       </div>

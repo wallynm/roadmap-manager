@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
+import { ProjectRail } from "./ProjectRail";
 import { Sidebar } from "./Sidebar";
-import { TopBar } from "./TopBar";
 
 interface AppShellProps {
   children: ReactNode;
@@ -8,12 +8,16 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
+    <div className="flex h-screen w-screen overflow-hidden bg-card">
+      <ProjectRail />
       <Sidebar />
-      <div className="flex flex-col flex-1 min-w-0">
-        <TopBar />
-        <main className="flex-1 overflow-auto p-4">{children}</main>
-      </div>
+      <main className="flex-1 overflow-hidden p-2 pl-0">
+        <div className="h-full rounded-xl border border-border bg-background overflow-hidden">
+          <div className="h-full overflow-auto p-6">
+            {children}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

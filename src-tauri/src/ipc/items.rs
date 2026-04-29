@@ -18,6 +18,7 @@ pub struct ItemFilters {
     pub labels: Option<Vec<String>>,
     pub item_type: Option<String>,
     pub search: Option<String>,
+    pub scope: Option<String>,
 }
 
 #[tauri::command]
@@ -42,6 +43,7 @@ pub async fn list_items(
         labels: f.labels,
         item_type: f.item_type,
         search: f.search,
+        scope: f.scope,
     });
 
     items::list_by_repo(&pool, &repo_id, db_filters.as_ref())

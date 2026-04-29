@@ -53,6 +53,7 @@ pub fn run() {
             ipc::repos::remove_repo,
             ipc::repos::rescan_repo,
             ipc::repos::get_repo,
+            ipc::repos::update_repo,
             ipc::items::list_items,
             ipc::items::get_item,
             ipc::items::create_item,

@@ -55,6 +55,16 @@ pub async fn remove(pool: &SqlitePool, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+pub async fn update_repo(pool: &SqlitePool, id: &str, name: &str, config: &str) -> AppResult<Repo> {
+    sqlx::query("UPDATE repos SET name = ?, config = ? WHERE id = ?")
+        .bind(name)
+        .bind(config)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    get(pool, id).await
+}
+
 pub async fn set_last_scan(pool: &SqlitePool, id: &str) -> AppResult<()> {
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     sqlx::query("UPDATE repos SET last_scan = ? WHERE id = ?")

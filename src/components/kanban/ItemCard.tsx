@@ -1,4 +1,5 @@
 import { useDraggable } from "@dnd-kit/core";
+import { Lock } from "lucide-react";
 import type { Item, Priority } from "@/types";
 import { cn, parseLabels, parseDependsOn, formatAge, PRIORITY_CONFIG } from "@/lib/utils";
 
@@ -9,25 +10,23 @@ interface ItemCardProps {
 }
 
 export function ItemCard({ item, onClick, isDragging }: ItemCardProps) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: item.id });
+  const { attributes, listeners, setNodeRef, isDragging: isBeingDragged } = useDraggable({ id: item.id });
   const labels = parseLabels(item.labels);
   const deps = parseDependsOn(item.depends_on);
   const priorityConfig = item.priority ? PRIORITY_CONFIG[item.priority as Priority] : null;
 
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
-    : undefined;
-
+  // When using DragOverlay, don't move the original — let it become an invisible placeholder.
+  // The overlay handles all visual movement.
   return (
     <div
       ref={setNodeRef}
-      style={style}
       {...listeners}
       {...attributes}
       onClick={onClick}
       className={cn(
         "bg-card border border-border rounded-lg p-3 cursor-pointer hover:border-primary/50 transition-colors",
-        isDragging && "opacity-50 shadow-lg ring-2 ring-primary"
+        isBeingDragged && "opacity-0 pointer-events-none",
+        isDragging && "shadow-xl ring-1 ring-primary/40 cursor-grabbing"
       )}
     >
       <div className="text-xs text-muted-foreground font-mono mb-1">{item.external_id}</div>
@@ -50,7 +49,10 @@ export function ItemCard({ item, onClick, isDragging }: ItemCardProps) {
         )}
       </div>
       {deps.length > 0 && (
-        <div className="text-xs text-amber-400 mt-1.5">🔒 blocked by {deps.length}</div>
+        <div className="flex items-center gap-1 text-xs text-amber-400 mt-1.5">
+          <Lock className="w-3 h-3" />
+          <span>blocked by {deps.length}</span>
+        </div>
       )}
       <div className="text-xs text-muted-foreground mt-1.5">
         {formatAge(item.started_date || item.created_date)}

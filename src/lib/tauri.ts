@@ -1,6 +1,35 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Item, Repo, ScanReport, Comment, Notification, AgentRun, ItemFilters } from "@/types";
 
+export interface RepoDisplay {
+  color?: string;
+}
+
+export function parseRepoDisplay(config: string): RepoDisplay {
+  try {
+    const cfg = JSON.parse(config) as Record<string, unknown>;
+    return {
+      color: typeof cfg.display_color === "string" ? cfg.display_color : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+export function setRepoDisplayColor(config: string, color: string | undefined): string {
+  try {
+    const cfg = JSON.parse(config) as Record<string, unknown>;
+    if (color) {
+      cfg.display_color = color;
+    } else {
+      delete cfg.display_color;
+    }
+    return JSON.stringify(cfg);
+  } catch {
+    return JSON.stringify(color ? { display_color: color } : {});
+  }
+}
+
 export const api = {
   listRepos: () => invoke<Repo[]>("list_repos"),
   addRepo: (name: string, path: string, config?: string) =>
@@ -8,6 +37,8 @@ export const api = {
   removeRepo: (id: string) => invoke<void>("remove_repo", { id }),
   rescanRepo: (repoId: string) => invoke<ScanReport>("rescan_repo", { repoId }),
   getRepo: (id: string) => invoke<Repo>("get_repo", { id }),
+  updateRepo: (id: string, name: string, config: string) =>
+    invoke<Repo>("update_repo", { id, name, config }),
 
   listItems: (repoId: string, filters?: ItemFilters) =>
     invoke<Item[]>("list_items", { repoId, filters }),

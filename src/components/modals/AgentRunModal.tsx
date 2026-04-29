@@ -2,6 +2,7 @@ import { X, Loader2, Check, AlertTriangle } from "lucide-react";
 import { useAgentRun } from "@/hooks/useAgentRun";
 import { useCreateItem } from "@/hooks/useItems";
 import { ConversationView } from "@/components/agent/ConversationView";
+import { Button } from "@/components/ui/Button";
 import { toast } from "sonner";
 
 interface AgentRunModalProps {
@@ -15,10 +16,14 @@ export function AgentRunModal({ open, onOpenChange, runId, repoId }: AgentRunMod
   const agent = useAgentRun(runId);
   const createItem = useCreateItem();
 
-  if (!open || !runId) return null;
+  if (!open || !runId) {
+    return null;
+  }
 
   const handleSave = () => {
-    if (!agent.result) return;
+    if (!agent.result) {
+      return;
+    }
     const fm = agent.result.frontmatter || {};
 
     createItem.mutate(
@@ -65,9 +70,9 @@ export function AgentRunModal({ open, onOpenChange, runId, repoId }: AgentRunMod
             {agent.phase === "error" && <AlertTriangle className="w-4 h-4 text-destructive" />}
             <span className="text-sm text-muted-foreground">Agent run</span>
           </div>
-          <button onClick={handleCancel} className="p-1 hover:bg-accent rounded">
+          <Button variant="ghost" size="icon" onClick={handleCancel}>
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -117,20 +122,13 @@ export function AgentRunModal({ open, onOpenChange, runId, repoId }: AgentRunMod
         </div>
 
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border shrink-0">
-          <button
-            onClick={handleCancel}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-          >
+          <Button variant="secondary" size="lg" onClick={handleCancel}>
             Cancel
-          </button>
+          </Button>
           {agent.phase === "finished" && agent.result?.frontmatter && (
-            <button
-              onClick={handleSave}
-              disabled={createItem.isPending}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-            >
-              {createItem.isPending ? "Saving..." : "Save & commit"}
-            </button>
+            <Button variant="solid" size="lg" loading={createItem.isPending} onClick={handleSave}>
+              Save & commit
+            </Button>
           )}
         </div>
       </div>

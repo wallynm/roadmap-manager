@@ -35,6 +35,7 @@ pub struct ItemFilters {
     pub labels: Option<Vec<String>>,
     pub item_type: Option<String>,
     pub search: Option<String>,
+    pub scope: Option<String>,
 }
 
 pub async fn list_by_repo(
@@ -57,6 +58,10 @@ pub async fn list_by_repo(
         if let Some(item_type) = &f.item_type {
             query.push_str(" AND type = ?");
             binds.push(item_type.clone());
+        }
+        if let Some(scope) = &f.scope {
+            query.push_str(" AND scope = ?");
+            binds.push(scope.clone());
         }
     }
 

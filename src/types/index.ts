@@ -119,4 +119,5 @@ export interface ItemFilters {
   labels?: string[];
   item_type?: string;
   search?: string;
+  scope?: string;
 }

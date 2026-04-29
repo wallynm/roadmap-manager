@@ -16,11 +16,13 @@ import { ItemCard } from "./ItemCard";
 import { useUpdateItem } from "@/hooks/useItems";
 import { toast } from "sonner";
 
-const COLUMNS: { id: ItemStatus; label: string; emoji: string }[] = [
-  { id: "backlog", label: "Backlog", emoji: "📋" },
-  { id: "todo", label: "Todo", emoji: "⬜" },
-  { id: "in_progress", label: "In Progress", emoji: "🔄" },
-  { id: "done", label: "Done", emoji: "✅" },
+import { STATUS_CONFIG } from "@/lib/utils";
+
+const COLUMNS: { id: ItemStatus; label: string }[] = [
+  { id: "backlog", label: "Backlog" },
+  { id: "todo", label: "Todo" },
+  { id: "in_progress", label: "In Progress" },
+  { id: "done", label: "Done" },
 ];
 
 interface KanbanBoardProps {
@@ -82,7 +84,8 @@ export function KanbanBoard({ items, onItemClick }: KanbanBoardProps) {
             key={col.id}
             id={col.id}
             label={col.label}
-            emoji={col.emoji}
+            icon={STATUS_CONFIG[col.id].icon}
+            color={STATUS_CONFIG[col.id].color}
             items={items.filter((i) => i.status === col.id)}
             onItemClick={onItemClick}
           />

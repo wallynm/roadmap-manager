@@ -3,6 +3,8 @@ import { X, Bot } from "lucide-react";
 import { useCreateItem } from "@/hooks/useItems";
 import { api } from "@/lib/tauri";
 import { AgentRunModal } from "./AgentRunModal";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface NewItemModalProps {
@@ -25,7 +27,9 @@ export function NewItemModal({ open, onOpenChange, repoId }: NewItemModalProps) 
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const createItem = useCreateItem();
 
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   if (activeRunId) {
     return (
@@ -53,7 +57,9 @@ export function NewItemModal({ open, onOpenChange, repoId }: NewItemModalProps) 
   }
 
   const handleSubmit = async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      return;
+    }
 
     if (useAgent) {
       try {
@@ -101,13 +107,19 @@ export function NewItemModal({ open, onOpenChange, repoId }: NewItemModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange(false)}>
-      <div className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={() => onOpenChange(false)}
+    >
+      <div
+        className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <span className="text-sm text-muted-foreground">New issue</span>
-          <button onClick={() => onOpenChange(false)} className="p-1 hover:bg-accent rounded">
+          <span className="text-sm text-muted-foreground">New item</span>
+          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         <div className="p-6 space-y-4">
@@ -160,11 +172,12 @@ export function NewItemModal({ open, onOpenChange, repoId }: NewItemModalProps) 
 
             <button
               onClick={() => setUseAgent(!useAgent)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors",
                 useAgent
                   ? "bg-primary/20 border-primary text-primary"
                   : "bg-secondary border-border text-muted-foreground hover:text-foreground"
-              }`}
+              )}
             >
               <Bot className="w-3.5 h-3.5" />
               Use agent
@@ -187,17 +200,15 @@ export function NewItemModal({ open, onOpenChange, repoId }: NewItemModalProps) 
         </div>
 
         <div className="flex items-center justify-end px-6 py-4 border-t border-border">
-          <button
+          <Button
+            variant="solid"
+            size="lg"
+            disabled={!title.trim()}
+            loading={createItem.isPending}
             onClick={handleSubmit}
-            disabled={!title.trim() || createItem.isPending}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
           >
-            {createItem.isPending
-              ? "Creating..."
-              : useAgent
-                ? "Start agent"
-                : "Create issue"}
-          </button>
+            {useAgent ? "Start agent" : "Create issue"}
+          </Button>
         </div>
       </div>
     </div>

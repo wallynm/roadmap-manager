@@ -1,10 +1,13 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AppShell } from "@/components/layout/AppShell";
+import { CommandPalette } from "@/components/command/CommandPalette";
+import { InboxModal } from "@/components/inbox/InboxModal";
 import { RepoView } from "@/pages/RepoView";
+import { ItemView } from "@/pages/ItemView";
+import { NewItemView } from "@/pages/NewItemView";
 import { SettingsView } from "@/pages/SettingsView";
 import { useRepos } from "@/hooks/useRepos";
-import { CommandPalette } from "@/components/command/CommandPalette";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useItemEvents } from "@/hooks/useItems";
 
@@ -14,22 +17,25 @@ export default function App() {
 
   return (
     <>
+      <CommandPalette />
+      <InboxModal />
       <AppShell>
         <Routes>
           <Route path="/" element={<DefaultRedirect />} />
           <Route path="/repos/:repoId" element={<RepoView />} />
+          <Route path="/repos/:repoId/items/new" element={<NewItemView />} />
+          <Route path="/repos/:repoId/items/:itemId" element={<ItemView />} />
           <Route path="/settings" element={<SettingsView />} />
         </Routes>
       </AppShell>
-      <CommandPalette />
       <Toaster
         position="bottom-right"
         theme="dark"
         toastOptions={{
           style: {
-            background: "hsl(222 47% 8%)",
-            border: "1px solid hsl(217 33% 17%)",
-            color: "hsl(210 40% 98%)",
+            background: "hsl(240 17% 12%)",
+            border: "1px solid hsl(240 13% 19%)",
+            color: "hsl(240 10% 90%)",
           },
         }}
       />

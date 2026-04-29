@@ -72,3 +72,15 @@ pub async fn rescan_repo(pool: State<'_, SqlitePool>, repo_id: String) -> Result
 pub async fn get_repo(pool: State<'_, SqlitePool>, id: String) -> Result<repos::Repo, String> {
     repos::get(&pool, &id).await.map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn update_repo(
+    pool: State<'_, SqlitePool>,
+    id: String,
+    name: String,
+    config: String,
+) -> Result<repos::Repo, String> {
+    repos::update_repo(&pool, &id, &name, &config)
+        .await
+        .map_err(|e| e.to_string())
+}

@@ -123,6 +123,14 @@ export function useAddDependency() {
   });
 }
 
+export function useItemComments(itemId: string | null) {
+  return useQuery({
+    queryKey: ["comments", itemId],
+    queryFn: () => api.getItemComments(itemId!),
+    enabled: !!itemId,
+  });
+}
+
 export function useAddComment() {
   const queryClient = useQueryClient();
   return useMutation({

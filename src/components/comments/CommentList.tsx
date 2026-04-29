@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MessageSquare, Bot, User } from "lucide-react";
 import type { Comment } from "@/types";
 import { useAddComment } from "@/hooks/useItems";
+import { Button } from "@/components/ui/Button";
 import { toast } from "sonner";
 
 interface CommentListProps {
@@ -31,13 +32,13 @@ export function CommentList({ comments, itemId }: CommentListProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" />
+        <h3 className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+          <MessageSquare className="w-3.5 h-3.5" />
           Comments ({comments.length})
         </h3>
         <button
           onClick={() => setShowInput(!showInput)}
-          className="text-xs text-primary hover:underline"
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           + Add comment
         </button>
@@ -68,20 +69,20 @@ export function CommentList({ comments, itemId }: CommentListProps) {
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Write a comment..."
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm min-h-[60px] resize-y"
+            className="w-full bg-secondary/60 border border-border rounded-lg px-3 py-2.5 text-sm min-h-[72px] resize-none focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/50 transition-colors"
             autoFocus
           />
           <div className="flex gap-2">
             <button
-              onClick={handleSubmit}
               disabled={!newComment.trim() || addComment.isPending}
-              className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+              onClick={handleSubmit}
+              className="px-3 py-1.5 text-xs font-medium rounded-md bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              Submit
+              {addComment.isPending ? "Saving…" : "Submit"}
             </button>
             <button
               onClick={() => { setShowInput(false); setNewComment(""); }}
-              className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+              className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancel
             </button>

@@ -56,6 +56,7 @@ pub async fn list_existing_items(
         labels: None,
         item_type: item_type.map(String::from),
         search: None,
+        scope: None,
     };
 
     let all_items = items::list_by_repo(pool, repo_id, Some(&filters)).await?;
