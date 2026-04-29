@@ -64,6 +64,32 @@ pub fn extract_string_array(yaml: &serde_yaml::Value, key: &str) -> Vec<String> 
         .unwrap_or_default()
 }
 
+/// Scans a markdown body for inline dependency references.
+/// Matches lines like `**Depende de:** RW-05` or `**Depends on:** ETM-01, FW-FEAT-02`.
+/// Returns deduplicated IDs in order of appearance.
+pub fn extract_deps_from_body(body: &str) -> Vec<String> {
+    static HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)\*{0,2}(?:depende\s+de|depends[\s-]on)\*{0,2}\s*:(.*)").unwrap()
+    });
+    static ID_RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)\b").unwrap()
+    });
+
+    let mut ids: Vec<String> = Vec::new();
+    for line in body.lines() {
+        if let Some(caps) = HEADER_RE.captures(line) {
+            let rest = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            for id_cap in ID_RE.captures_iter(rest) {
+                let id = id_cap.get(1).unwrap().as_str().to_string();
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+        }
+    }
+    ids
+}
+
 pub fn normalize_priority(s: &str) -> Option<String> {
     let lower = s.to_lowercase().trim().to_string();
     match lower.as_str() {

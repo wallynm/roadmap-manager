@@ -404,7 +404,14 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
         let priority = parser::extract_string(&parsed.yaml, "priority")
             .and_then(|p| parser::normalize_priority(&p));
         let labels = parser::extract_string_array(&parsed.yaml, "labels");
-        let depends_on = parser::extract_string_array(&parsed.yaml, "depends-on");
+        let depends_on = {
+            let from_fm = parser::extract_string_array(&parsed.yaml, "depends-on");
+            if from_fm.is_empty() {
+                parser::extract_deps_from_body(&parsed.body)
+            } else {
+                from_fm
+            }
+        };
         let relates_to = parser::extract_string_array(&parsed.yaml, "relates-to");
         let created_date = parser::extract_string(&parsed.yaml, "created-date");
         let started_date = parser::extract_string(&parsed.yaml, "started-date");
