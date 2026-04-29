@@ -118,7 +118,8 @@ function StatusDot({ status }: { status: ItemStatus }) {
 
 function PriorityDot({ priority }: { priority: Priority }) {
   const cfg = PRIORITY_CONFIG[priority];
-  return <span className={cn("w-2 h-2 rounded-full shrink-0", cfg.bgColor.replace("/20", ""))} />;
+  const Icon = cfg.icon;
+  return <Icon size={13} className={cfg.color} />;
 }
 
 // ─── main component ───────────────────────────────────────────────────────────
@@ -250,7 +251,7 @@ export function FilterBar({
             {/* Priority */}
             <FilterSubMenu
               label="Priority"
-              icon={<span className="w-3.5 h-3.5 flex items-center justify-center text-muted-foreground/70 text-[10px] font-bold">P</span>}
+              icon={<PriorityDot priority="Alta" />}
             >
               <p className={LABEL_CLS}>Priority</p>
               {PRIORITIES.map((p) => {

@@ -9,6 +9,14 @@ import {
   Link2,
   type LucideIcon,
 } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
+import {
+  PriorityNone,
+  PriorityUrgent,
+  PriorityHigh,
+  PriorityMedium,
+  PriorityLow,
+} from "@/components/ui/PriorityIcon";
 import type { ItemStatus, Priority } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
@@ -24,12 +32,17 @@ export const STATUS_CONFIG: Record<ItemStatus, { label: string; icon: LucideIcon
   duplicate:   { label: "Duplicate",   icon: Link2,           color: "text-violet-400" },
 };
 
-export const PRIORITY_CONFIG: Record<Priority, { color: string; bgColor: string }> = {
-  Urgente: { color: "text-red-600",   bgColor: "bg-red-600/20" },
-  Alta:    { color: "text-red-400",   bgColor: "bg-red-400/20" },
-  Média:   { color: "text-amber-400", bgColor: "bg-amber-400/20" },
-  Baixa:   { color: "text-sky-400",   bgColor: "bg-sky-400/20" },
-  Nenhuma: { color: "text-slate-400", bgColor: "bg-slate-400/20" },
+type PriorityIconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
+
+export const PRIORITY_CONFIG: Record<
+  Priority,
+  { color: string; bgColor: string; icon: PriorityIconComponent }
+> = {
+  Urgente: { color: "text-red-500",   bgColor: "bg-red-500/15",   icon: PriorityUrgent },
+  Alta:    { color: "text-orange-400", bgColor: "bg-orange-400/15", icon: PriorityHigh },
+  Média:   { color: "text-amber-400", bgColor: "bg-amber-400/15", icon: PriorityMedium },
+  Baixa:   { color: "text-sky-400",   bgColor: "bg-sky-400/15",   icon: PriorityLow },
+  Nenhuma: { color: "text-slate-400", bgColor: "bg-slate-400/10", icon: PriorityNone },
 };
 
 export function parseLabels(labelsJson: string): string[] {

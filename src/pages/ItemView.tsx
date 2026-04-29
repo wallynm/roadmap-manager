@@ -459,16 +459,24 @@ export function ItemView() {
                 options={PRIORITIES}
                 onChange={handlePriorityChange}
                 renderValue={(v) => {
-                  const cfg = v ? PRIORITY_CONFIG[v] : PRIORITY_CONFIG["Nenhuma"];
+                  const cfg = PRIORITY_CONFIG[v ?? "Nenhuma"];
+                  const Icon = cfg.icon;
                   return (
-                    <span className={cn("text-xs font-medium", cfg.color)}>
+                    <span className={cn("flex items-center gap-1.5 text-xs font-medium", cfg.color)}>
+                      <Icon size={12} />
                       {v ?? "Nenhuma"}
                     </span>
                   );
                 }}
                 renderOption={(v) => {
                   const cfg = PRIORITY_CONFIG[v];
-                  return <span className={cn("text-xs", cfg.color)}>{v}</span>;
+                  const Icon = cfg.icon;
+                  return (
+                    <span className={cn("flex items-center gap-1.5 text-xs", cfg.color)}>
+                      <Icon size={12} />
+                      {v}
+                    </span>
+                  );
                 }}
               />
             </PropRow>

@@ -101,7 +101,8 @@ export function ItemDetailsModal({ item, onClose }: ItemDetailsModalProps) {
               );
             })()}
             {priorityCfg && (
-              <span className={cn("text-sm px-2 py-1 rounded", priorityCfg.bgColor, priorityCfg.color)}>
+              <span className={cn("flex items-center gap-1.5 text-sm px-2 py-1 rounded bg-secondary", priorityCfg.color)}>
+                <priorityCfg.icon size={14} />
                 {item.priority}
               </span>
             )}

@@ -145,9 +145,9 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
 
       <div className="flex items-center gap-1.5 w-20 shrink-0">
         {priorityCfg ? (
-          <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", priorityCfg.color.replace("text-", "bg-"))} />
+          <priorityCfg.icon size={12} className={cn("shrink-0", priorityCfg.color)} />
         ) : (
-          <div className="w-1.5 h-1.5 shrink-0" />
+          <div className="w-3 h-3 shrink-0" />
         )}
         <span className="text-[11px] text-muted-foreground/60 font-mono truncate">
           {item.external_id}

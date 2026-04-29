@@ -73,13 +73,11 @@ export function ItemCard({ item, onClick, isGhost = false, isOverlay = false }: 
     >
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs text-muted-foreground font-mono">{item.external_id}</span>
-        {priorityConfig && (
-          <span className={cn(
-            "text-[10px] font-semibold px-1.5 py-0.5 rounded",
-            priorityConfig.bgColor, priorityConfig.color
-          )}>
-            {item.priority}
-          </span>
+        {priorityConfig && item.priority !== "Nenhuma" && (
+          <priorityConfig.icon
+            size={12}
+            className={priorityConfig.color}
+          />
         )}
       </div>
       <div className="text-sm font-medium text-foreground leading-tight mb-2 line-clamp-2">
