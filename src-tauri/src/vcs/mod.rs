@@ -102,6 +102,36 @@ pub fn auto_commit(
     Ok(())
 }
 
+pub fn batch_commit(
+    repo: &Repo,
+    rel_paths: &[String],
+    message: &str,
+) -> AppResult<()> {
+    let config: RepoConfig = serde_json::from_str(&repo.config)
+        .map_err(|e| AppError::Validation(format!("Invalid repo config: {}", e)))?;
+
+    if !config.auto_commit.enabled {
+        return Ok(());
+    }
+
+    let git_repo = git2::Repository::open(&repo.path)?;
+    let mut index = git_repo.index()?;
+
+    for rel in rel_paths {
+        index.add_path(Path::new(rel))?;
+    }
+    index.write()?;
+
+    let tree_oid = index.write_tree()?;
+    let tree = git_repo.find_tree(tree_oid)?;
+    let sig = git_repo.signature()?;
+    let parent = git_repo.head()?.peel_to_commit()?;
+
+    git_repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent])?;
+
+    Ok(())
+}
+
 pub fn current_branch(repo_path: &str) -> AppResult<String> {
     let git_repo = git2::Repository::open(repo_path)?;
     let head = git_repo.head()?;

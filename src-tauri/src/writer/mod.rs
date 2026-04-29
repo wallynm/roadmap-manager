@@ -8,6 +8,10 @@ use crate::error::AppResult;
 use crate::parser;
 use crate::scanner::TemplateConfig;
 
+pub fn yaml_value_pub(v: &str) -> String {
+    yaml_value(v)
+}
+
 fn yaml_value(v: &str) -> String {
     if v.is_empty() {
         return v.to_string();

@@ -306,21 +306,21 @@ pub fn discover_template_dirs(repo_path: &Path, template_dir: &str) -> Vec<std::
     dirs
 }
 
-pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport> {
-    let repo = repos::get(pool, repo_id).await?;
-    let config: RepoConfig = serde_json::from_str(&repo.config)
-        .map_err(|e| AppError::Validation(format!("Invalid repo config: {}", e)))?;
+pub struct TemplateFile {
+    pub rel_path: String,
+    pub abs_path: std::path::PathBuf,
+    pub template_name: String,
+}
 
-    let repo_path = Path::new(&repo.path);
-    let mut report = ScanReport::default();
-    let mut found_paths: Vec<String> = Vec::new();
+static SKIP_FILES: &[&str] = &["INDEX.md", "README.md", "ROADMAP.md"];
 
+pub fn walk_template_files(
+    repo_path: &Path,
+    config: &RepoConfig,
+) -> Vec<TemplateFile> {
+    let mut files = Vec::new();
     for (type_name, template) in &config.templates {
         let scan_dirs = discover_template_dirs(repo_path, &template.dir);
-        if scan_dirs.is_empty() {
-            continue;
-        }
-
         for dir in &scan_dirs {
             for entry in WalkDir::new(dir).max_depth(1).into_iter().flatten() {
                 let path = entry.path();
@@ -331,105 +331,133 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
                 if !file_name.ends_with(".md") {
                     continue;
                 }
-                let skip = ["INDEX.md", "README.md", "ROADMAP.md"];
-                if skip.iter().any(|s| file_name.as_ref() == *s) {
+                if SKIP_FILES.iter().any(|s| file_name.as_ref() == *s) {
                     continue;
                 }
+                let rel_path = path
+                    .strip_prefix(repo_path)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .to_string();
+                files.push(TemplateFile {
+                    rel_path,
+                    abs_path: path.to_path_buf(),
+                    template_name: type_name.clone(),
+                });
+            }
+        }
+    }
+    files
+}
 
-            let rel_path = path
-                .strip_prefix(repo_path)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .to_string();
-            found_paths.push(rel_path.clone());
+pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport> {
+    let repo = repos::get(pool, repo_id).await?;
+    let config: RepoConfig = serde_json::from_str(&repo.config)
+        .map_err(|e| AppError::Validation(format!("Invalid repo config: {}", e)))?;
 
-            let content = match std::fs::read_to_string(path) {
-                Ok(c) => c,
-                Err(e) => {
-                    report.errors.push(format!("{}: {}", rel_path, e));
-                    continue;
-                }
-            };
+    let repo_path = Path::new(&repo.path);
+    let mut report = ScanReport::default();
+    let mut found_paths: Vec<String> = Vec::new();
 
-            let file_hash = parser::hash(&content);
-            let parsed = match parser::parse(&content) {
-                Ok(p) => p,
-                Err(e) => {
-                    report.errors.push(format!("{}: {}", rel_path, e));
-                    continue;
-                }
-            };
+    let template_files = walk_template_files(repo_path, &config);
 
-            let external_id = parser::extract_string(&parsed.yaml, "id").unwrap_or_default();
-            let title = parser::extract_string(&parsed.yaml, "title").unwrap_or_default();
-            let status_raw =
-                parser::extract_string(&parsed.yaml, "status").unwrap_or_else(|| "backlog".into());
-            let status = normalize_status(&status_raw);
-            let priority = parser::extract_string(&parsed.yaml, "priority")
-                .and_then(|p| parser::normalize_priority(&p));
-            let labels = parser::extract_string_array(&parsed.yaml, "labels");
-            let depends_on = parser::extract_string_array(&parsed.yaml, "depends-on");
-            let created_date = parser::extract_string(&parsed.yaml, "created-date");
-            let started_date = parser::extract_string(&parsed.yaml, "started-date");
-            let completed_date = parser::extract_string(&parsed.yaml, "completed-date");
-            let duplicate_of = parser::extract_string(&parsed.yaml, "duplicate-of");
+    for tf in &template_files {
+        let template = match config.templates.get(&tf.template_name) {
+            Some(t) => t,
+            None => continue,
+        };
 
-            if external_id.is_empty() || title.is_empty() {
-                report
-                    .errors
-                    .push(format!("{}: missing id or title in frontmatter", rel_path));
+        found_paths.push(tf.rel_path.clone());
+
+        let content = match std::fs::read_to_string(&tf.abs_path) {
+            Ok(c) => c,
+            Err(e) => {
+                report.errors.push(format!("{}: {}", tf.rel_path, e));
                 continue;
             }
+        };
 
-            let existing = items::get_by_path(pool, repo_id, &rel_path).await?;
+        let file_hash = parser::hash(&content);
+        let parsed = match parser::parse(&content) {
+            Ok(p) => p,
+            Err(e) => {
+                report.errors.push(format!("{}: {}", tf.rel_path, e));
+                continue;
+            }
+        };
 
-            match existing {
-                Some(existing_item) => {
-                    if existing_item.file_hash != file_hash {
-                        let mut updated = existing_item.clone();
-                        updated.title = title;
-                        updated.body = parsed.body;
-                        updated.frontmatter = parsed.raw_frontmatter;
-                        updated.file_hash = file_hash;
-                        updated.status = status.as_str().to_string();
-                        updated.priority = priority;
-                        updated.labels = serde_json::to_string(&labels).unwrap_or_default();
-                        updated.depends_on = serde_json::to_string(&depends_on).unwrap_or_default();
-                        updated.duplicate_of = duplicate_of;
-                        updated.created_date = created_date;
-                        updated.started_date = started_date;
-                        updated.completed_date = completed_date;
-                        items::update(pool, &updated).await?;
-                        report.updated += 1;
-                    }
-                }
-                None => {
-                    let scope = derive_scope(&rel_path, &template.dir);
-                    let item = items::Item {
-                        id: Uuid::new_v4().to_string(),
-                        repo_id: repo_id.to_string(),
-                        external_id,
-                        scope,
-                        item_type: type_name.clone(),
-                        title,
-                        file_path: rel_path,
-                        file_hash,
-                        body: parsed.body,
-                        frontmatter: parsed.raw_frontmatter,
-                        status: status.as_str().to_string(),
-                        priority,
-                        labels: serde_json::to_string(&labels).unwrap_or_default(),
-                        depends_on: serde_json::to_string(&depends_on).unwrap_or_default(),
-                        duplicate_of,
-                        created_date,
-                        started_date,
-                        completed_date,
-                        updated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
-                    };
-                    items::insert(pool, &item).await?;
-                    report.added += 1;
+        let external_id = parser::extract_string(&parsed.yaml, "id").unwrap_or_default();
+        let title = parser::extract_string(&parsed.yaml, "title").unwrap_or_default();
+        let status_raw =
+            parser::extract_string(&parsed.yaml, "status").unwrap_or_else(|| "backlog".into());
+        let status = normalize_status(&status_raw);
+        let priority = parser::extract_string(&parsed.yaml, "priority")
+            .and_then(|p| parser::normalize_priority(&p));
+        let labels = parser::extract_string_array(&parsed.yaml, "labels");
+        let depends_on = parser::extract_string_array(&parsed.yaml, "depends-on");
+        let created_date = parser::extract_string(&parsed.yaml, "created-date");
+        let started_date = parser::extract_string(&parsed.yaml, "started-date");
+        let completed_date = parser::extract_string(&parsed.yaml, "completed-date");
+        let duplicate_of = parser::extract_string(&parsed.yaml, "duplicate-of");
+
+        if external_id.is_empty() || title.is_empty() {
+            report
+                .errors
+                .push(format!("{}: missing id or title in frontmatter", tf.rel_path));
+            continue;
+        }
+
+        let existing = items::get_by_path(pool, repo_id, &tf.rel_path).await?;
+
+        match existing {
+            Some(existing_item) => {
+                if existing_item.file_hash != file_hash {
+                    let mut updated = existing_item.clone();
+                    updated.title = title;
+                    updated.body = parsed.body;
+                    updated.frontmatter = parsed.raw_frontmatter;
+                    updated.file_hash = file_hash;
+                    updated.status = status.as_str().to_string();
+                    updated.priority = priority;
+                    updated.labels = serde_json::to_string(&labels).unwrap_or_default();
+                    updated.depends_on =
+                        serde_json::to_string(&depends_on).unwrap_or_default();
+                    updated.duplicate_of = duplicate_of;
+                    updated.created_date = created_date;
+                    updated.started_date = started_date;
+                    updated.completed_date = completed_date;
+                    items::update(pool, &updated).await?;
+                    report.updated += 1;
                 }
             }
+            None => {
+                let type_name = &tf.template_name;
+                let scope = derive_scope(&tf.rel_path, &template.dir);
+                let item = items::Item {
+                    id: Uuid::new_v4().to_string(),
+                    repo_id: repo_id.to_string(),
+                    external_id,
+                    scope,
+                    item_type: type_name.clone(),
+                    title,
+                    file_path: tf.rel_path.clone(),
+                    file_hash,
+                    body: parsed.body,
+                    frontmatter: parsed.raw_frontmatter,
+                    status: status.as_str().to_string(),
+                    priority,
+                    labels: serde_json::to_string(&labels).unwrap_or_default(),
+                    depends_on: serde_json::to_string(&depends_on).unwrap_or_default(),
+                    duplicate_of,
+                    created_date,
+                    started_date,
+                    completed_date,
+                    updated_at: chrono::Utc::now()
+                        .format("%Y-%m-%dT%H:%M:%S")
+                        .to_string(),
+                };
+                items::insert(pool, &item).await?;
+                report.added += 1;
             }
         }
     }
