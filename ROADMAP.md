@@ -6,11 +6,12 @@ status: in-progress
 
 # Roadmap — roadmap-manager
 
-Implementação dividida em 8 fases originais + Phase 09 de fixes. Cada fase é shippable
-independentemente — você pode parar em qualquer fase e ainda ter um produto funcional.
+Implementação dividida em 8 fases originais + Phase 09 de fixes + Phase 10 de pipeline parity.
+Cada fase é shippable independentemente — você pode parar em qualquer fase e ainda ter um
+produto funcional.
 
 > **Última validação**: [2026-04-29](docs/validation/2026-04-29-validation-report.md).
-> Phases 01-06 + 09 shipped. 07-08 ainda planned.
+> Phases 01-06 + 09 + 10 shipped. 07-08 ainda planned.
 
 | Phase | Title | Status | Adds |
 |---|---|---|---|
@@ -23,6 +24,7 @@ independentemente — você pode parar em qualquer fase e ainda ter um produto f
 | 07 | [Comments + labels + priority migration](docs/phases/phase-07-comments-labels-priority.md) | 📋 planned | UX additions + data migrations |
 | 08 | [Polish](docs/phases/phase-08-polish.md) | 📋 planned | Notifications, settings panel, distribution |
 | **09** | **[Implementation fixes](docs/phases/phase-09-implementation-fixes.md)** | ✅ shipped | **Wire watcher + spawn sidecar + agent UI + YAML escape + error propagation** |
+| **10** | **[Pipeline parity](docs/phases/phase-10-pipeline-parity.md)** | ✅ shipped | **Per-template validation + auto-fix + archive + dep static analysis + impact ranking + reindex (substitui o pipeline `.sh/.mjs` do simulation-engine)** |
 
 ## Phase 09 — fix list (priorizado)
 
@@ -40,6 +42,31 @@ Decorre da [validation report 2026-04-29](docs/validation/2026-04-29-validation-
 | F8 | 🟢 Decision | Sidecar SDK choice — `@anthropic-ai/sdk` vs `claude-agent-sdk` (Finding #9) | doc only |
 
 Total estimado: ~7-8h de trabalho focado.
+
+## Phase 10 — feature list (priorizado)
+
+Cobertura das operações de hygiene/batch hoje feitas pelo pipeline `.sh + .mjs`
+do simulation-engine. Detalhe completo em
+[phase-10-pipeline-parity.md](docs/phases/phase-10-pipeline-parity.md).
+
+| ID | Severity | Feature | Substitui | Status |
+|---|---|---|---|---|
+| P10-F1 | 🔴 Critical | Per-template frontmatter validation | `roadmap-archive.sh --validate` | ✅ shipped |
+| P10-F2 | 🔴 Critical | Auto-fix per-template (defaults + git-derived dates) | `fix-frontmatter.mjs` | ✅ shipped |
+| P10-F3 | 🔴 Critical | Archive shipped items + cross-ref rewrite | `roadmap-archive.sh` (default) | ✅ shipped |
+| P10-F4 | 🟡 Important | Dep graph static analysis (orphan/cycle/self-ref) | `roadmap-deps-check.mjs` | ✅ shipped |
+| P10-F5 | 🟡 Important | Impact ranking (BFS reverse graph) + temporal filters | `roadmap-next.mjs --impact/--since/--stale` | ✅ shipped |
+| P10-F6 | 🟡 Important | Reindex `INDEX.md` por template subdirectory | `roadmap-reindex.mjs` | ✅ shipped |
+| P10-F7 | 🟢 Nice | ROADMAP.md body parsing (checkbox count) | `roadmap-archive.sh --status` (checkboxes) | ✅ shipped |
+| P10-F8 | 🟢 Nice | Sub-roadmap status (emoji heuristic, opt-in glob) | `roadmap-archive.sh --status` (scenarios) | ✅ shipped |
+
+Phase 10 entregue em 2026-04-29 — ~1500 linhas Rust + 450 TS + 26 testes (todos passando).
+Cross-check 100% match com spec; zero gaps.
+
+**Decisão arquitetural**: validação é **per-repo-template** (cada
+`RepoConfig.templates[type]` declara `required_fields` + `defaults`), não 6
+schemas hardcoded. Adicionar template ao repo = ensinar o manager o que é
+"válido" lá. Reforça princípio #4 ("Templates per repo").
 
 ## Princípios não-negociáveis (cross-phase)
 
