@@ -132,7 +132,7 @@ function StatusGroup({
 function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void; unblocks?: number }) {
   const cfg = STATUS_CONFIG[item.status];
   const Icon = cfg.icon;
-  const priorityCfg = item.priority ? PRIORITY_CONFIG[item.priority as Priority] : null;
+  const priorityCfg = PRIORITY_CONFIG[(item.priority as Priority) ?? "Nenhuma"];
   const labels: string[] = (() => { try { return JSON.parse(item.labels); } catch { return []; } })();
   const deps: string[] = (() => { try { return JSON.parse(item.depends_on); } catch { return []; } })();
 
@@ -144,11 +144,7 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
       <GripVertical className="w-3 h-3 text-muted-foreground/20 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
 
       <div className="flex items-center gap-1.5 w-20 shrink-0">
-        {priorityCfg ? (
-          <priorityCfg.icon size={12} className={cn("shrink-0", priorityCfg.color)} />
-        ) : (
-          <div className="w-3 h-3 shrink-0" />
-        )}
+        <priorityCfg.icon size={12} className={cn("shrink-0", priorityCfg.color)} />
         <span className="text-[11px] text-muted-foreground/60 font-mono truncate">
           {item.external_id}
         </span>
@@ -178,12 +174,7 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
           unblocks {unblocks}
         </span>
       )}
-      {priorityCfg && (
-        <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0", priorityCfg.bgColor, priorityCfg.color)}>
-          {item.priority}
-        </span>
-      )}
-      <span className="text-[11px] text-muted-foreground/60 w-14 text-right shrink-0">
+<span className="text-[11px] text-muted-foreground/60 w-14 text-right shrink-0">
         {formatDateShort(item.created_date)}
       </span>
     </div>
