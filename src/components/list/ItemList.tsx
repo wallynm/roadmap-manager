@@ -4,6 +4,7 @@ import type { Item, ItemStatus, Priority } from "@/types";
 import { cn, STATUS_CONFIG, PRIORITY_CONFIG, formatDateShort, parseRelatesTo } from "@/lib/utils";
 import { useCreateItem, useUpdateItem } from "@/hooks/useItems";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/Button";
 
 export type SortField = "default" | "priority" | "created_date" | "impact";
 export type SortDir = "asc" | "desc";
@@ -262,13 +263,10 @@ function StatusGroup({
               <span className="text-[10px] text-muted-foreground/40 shrink-0">↵ confirmar · esc cancelar</span>
             </div>
           ) : repoId ? (
-            <button
-              onClick={startCreating}
-              className="flex items-center justify-center gap-1.5 w-full px-3 py-1.5 mt-1 text-xs text-muted-foreground/50 hover:text-muted-foreground bg-secondary/60 hover:bg-secondary rounded-lg transition-colors"
-            >
+            <Button variant="add" size="sm" onClick={startCreating} className="mt-1">
               <Plus className="w-3 h-3" />
               Add item
-            </button>
+            </Button>
           ) : null}
         </div>
       )}

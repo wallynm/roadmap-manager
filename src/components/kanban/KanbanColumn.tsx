@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import type { Item, ItemStatus } from "@/types";
 import { ItemCard } from "./ItemCard";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
 import { useCreateItem, useUpdateItem } from "@/hooks/useItems";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
@@ -121,13 +122,10 @@ export function KanbanColumn({
               />
             </div>
           ) : repoId ? (
-            <button
-              onClick={startCreating}
-              className="flex items-center justify-center gap-1.5 w-full px-3 py-2 mt-1 text-xs text-muted-foreground/50 hover:text-muted-foreground bg-secondary/60 hover:bg-secondary rounded-lg transition-colors"
-            >
+            <Button variant="add" size="sm" onClick={startCreating} className="mt-1">
               <Plus className="w-3 h-3" />
               Add item
-            </button>
+            </Button>
           ) : null}
         </div>
       </SortableContext>

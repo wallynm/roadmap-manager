@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { STATUS_CONFIG, PRIORITY_CONFIG, parseLabels } from "@/lib/utils";
 import type { ActiveFilters } from "@/hooks/usePrefs";
 import type { Item, ItemStatus, Priority } from "@/types";
+import { Button } from "@/components/ui/Button";
 
 // ─── shared menu content styles ───────────────────────────────────────────────
 
@@ -176,17 +177,10 @@ export function FilterBar({
       {/* Sort menu */}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <button
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-colors",
-              sortIdx > 0
-                ? "bg-primary/15 text-primary"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent",
-            )}
-          >
+          <Button variant={sortIdx > 0 ? "primary" : "secondary"} size="sm" active={sortIdx > 0}>
             <ArrowUpDown className="w-3 h-3" />
             {sortIdx > 0 ? currentSort.label : "Sort"}
-          </button>
+          </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className={CONTENT_CLS} align="end" sideOffset={6}>
@@ -208,17 +202,10 @@ export function FilterBar({
       {/* Filter menu */}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <button
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-colors",
-              totalActive > 0
-                ? "bg-primary/15 text-primary"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent",
-            )}
-          >
+          <Button variant={totalActive > 0 ? "primary" : "secondary"} size="sm" active={totalActive > 0}>
             <SlidersHorizontal className="w-3 h-3" />
             {totalActive > 0 ? `Filter (${totalActive})` : "Filter"}
-          </button>
+          </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className={CONTENT_CLS} align="end" sideOffset={6}>
@@ -340,13 +327,14 @@ export function FilterBar({
 
       {/* Clear all chips shortcut */}
       {chips.length > 1 && (
-        <button
-          onClick={() => onFiltersChange({ statuses: [], priorities: [], types: [], labels: [] })}
-          className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+        <Button
+          variant="ghost"
+          size="icon"
           title="Clear all filters"
+          onClick={() => onFiltersChange({ statuses: [], priorities: [], types: [], labels: [] })}
         >
           <X className="w-3 h-3" />
-        </button>
+        </Button>
       )}
     </div>
   );

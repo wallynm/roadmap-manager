@@ -10,6 +10,7 @@ import { FilterBar, type SortOption } from "@/components/filters/FilterBar";
 import type { Item, ItemFilters } from "@/types";
 import { cn } from "@/lib/utils";
 import { LayoutGrid, List, GitBranch } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 const VIEWS = [
   { id: "kanban", label: "Kanban", icon: LayoutGrid },
@@ -158,18 +159,9 @@ export function RepoView() {
         {/* Tabs */}
         <div className="flex items-center gap-1">
           {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-full transition-colors",
-                tab === t.id
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
+            <Button key={t.id} variant="tab" size="sm" active={tab === t.id} onClick={() => setTab(t.id)}>
               {t.label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -188,19 +180,10 @@ export function RepoView() {
 
           {/* View switcher */}
           {VIEWS.map((view) => (
-            <button
-              key={view.id}
-              onClick={() => handleSetView(view.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded transition-colors",
-                currentView === view.id
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
+            <Button key={view.id} variant="secondary" size="sm" active={currentView === view.id} onClick={() => handleSetView(view.id)}>
               <view.icon className="w-3.5 h-3.5" />
               {view.label}
-            </button>
+            </Button>
           ))}
           <span className="text-xs text-muted-foreground ml-2">
             {filteredItems.length}
