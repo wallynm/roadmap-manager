@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useRepos, useRemoveRepo, useRescanRepo, useUpdateRepo } from "@/hooks/useRepos";
 import { cn } from "@/lib/utils";
-import { Trash2, RefreshCw, Check, Globe } from "lucide-react";
+import { Trash2, RefreshCw, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "sonner";
 import type { Repo } from "@/types";
@@ -31,88 +31,22 @@ function repoInitials(name: string): string {
 }
 
 export function SettingsView() {
+  const { repoId } = useParams<{ repoId: string }>();
   const { data: repos } = useRepos();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [selected, setSelected] = useState<string | "general">("general");
+  const repo = repos?.find((r) => r.id === repoId);
 
-  // Pre-select from URL param on mount / when repos load
-  useEffect(() => {
-    const param = searchParams.get("repo");
-    if (param && repos?.find((r) => r.id === param)) {
-      setSelected(param);
-    } else if (repos && repos.length > 0 && selected === "general") {
-      setSelected(repos[0].id);
-    }
-  }, [repos]);
-
-  const handleSelect = (id: string | "general") => {
-    setSelected(id);
-    if (id !== "general") {
-      setSearchParams({ repo: id }, { replace: true });
-    } else {
-      setSearchParams({}, { replace: true });
-    }
-  };
-
-  const activeRepo = repos?.find((r) => r.id === selected);
+  if (!repo) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+        Project not found.
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-3xl mx-auto h-full flex flex-col">
-      <h1 className="text-xl font-semibold mb-5 shrink-0">Settings</h1>
-
-      <div className="flex gap-5 flex-1 min-h-0">
-        {/* Left — project list */}
-        <nav className="w-44 shrink-0 space-y-0.5">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
-            Projects
-          </p>
-          {repos?.map((repo) => {
-            const display = parseRepoDisplay(repo.config);
-            const bgColor = display.color;
-            return (
-              <button
-                key={repo.id}
-                onClick={() => handleSelect(repo.id)}
-                className={cn(
-                  "flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm transition-colors text-left",
-                  selected === repo.id
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                )}
-              >
-                <span
-                  className="w-5 h-5 rounded-md shrink-0 flex items-center justify-center text-white text-[9px] font-bold"
-                  style={{ backgroundColor: bgColor ?? "#6366f1" }}
-                >
-                  {repoInitials(repo.name)}
-                </span>
-                <span className="truncate">{repo.name}</span>
-              </button>
-            );
-          })}
-
-          <div className="border-t border-border/50 my-2" />
-
-          <button
-            onClick={() => handleSelect("general")}
-            className={cn(
-              "flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm transition-colors",
-              selected === "general"
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            )}
-          >
-            <Globe className="w-4 h-4 shrink-0" />
-            <span>General</span>
-          </button>
-        </nav>
-
-        {/* Right — panel */}
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {activeRepo && <ProjectPanel key={activeRepo.id} repo={activeRepo} />}
-          {selected === "general" && <GeneralPanel />}
-        </div>
-      </div>
+    <div className="max-w-xl mx-auto space-y-2">
+      <h1 className="text-sm font-semibold mb-5">Settings — {repo.name}</h1>
+      <ProjectPanel repo={repo} />
     </div>
   );
 }
@@ -171,6 +105,7 @@ function ProjectPanel({ repo }: { repo: Repo }) {
               {COLOR_PALETTE.map((hex) => (
                 <button
                   key={hex}
+                  type="button"
                   onClick={() => setColor(color === hex ? "" : hex)}
                   className="w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-background"
                   style={{ backgroundColor: hex }}
@@ -194,7 +129,7 @@ function ProjectPanel({ repo }: { repo: Repo }) {
         </div>
       </section>
 
-      {/* Info */}
+      {/* Repository info */}
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Repository</h2>
         <div className="rounded-lg border border-border divide-y divide-border">
@@ -217,9 +152,9 @@ function ProjectPanel({ repo }: { repo: Repo }) {
         </Button>
       </section>
 
-      {/* Danger */}
+      {/* Danger zone */}
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-destructive">Danger zone</h2>
+        <h2 className={cn("text-sm font-medium text-destructive")}>Danger zone</h2>
         <div className="rounded-lg border border-destructive/30 p-4 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">Remove project</p>
@@ -250,57 +185,6 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
       <span className={cn("text-xs text-foreground truncate text-right", mono && "font-mono")}>
         {value}
       </span>
-    </div>
-  );
-}
-
-function GeneralPanel() {
-  const [_key, setKey] = useState("");
-
-  return (
-    <div className="space-y-8">
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Anthropic API Key</h2>
-        <p className="text-xs text-muted-foreground">
-          Resolved from: ANTHROPIC_API_KEY env → ~/.claude/auth.json → manual override below
-        </p>
-        <input
-          type="password"
-          value={_key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="sk-ant-..."
-          className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        />
-        <Button variant="ghost" size="sm">
-          Test key
-        </Button>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Keyboard shortcuts</h2>
-        <div className="rounded-lg border border-border divide-y divide-border">
-          {[
-            ["⌘K", "Command palette"],
-            ["⌘N", "New item"],
-            ["⌘\\", "Toggle sidebar"],
-            ["J / K", "Navigate items"],
-            ["Enter", "Open item"],
-            ["Esc", "Close / cancel"],
-          ].map(([key, desc]) => (
-            <div key={key} className="flex items-center justify-between px-3 py-2">
-              <span className="text-xs text-muted-foreground">{desc}</span>
-              <kbd className="text-[10px] font-mono bg-secondary border border-border px-1.5 py-0.5 rounded">
-                {key}
-              </kbd>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-1">
-        <h2 className="text-sm font-medium">About</h2>
-        <p className="text-xs text-muted-foreground">Roadmap Manager v0.1.0</p>
-      </section>
     </div>
   );
 }

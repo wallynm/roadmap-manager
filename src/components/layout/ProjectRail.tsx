@@ -45,7 +45,9 @@ export function ProjectRail() {
   const [showAddRepo, setShowAddRepo] = useState(false);
 
   const activeRepoId = REPO_RE.exec(location.pathname)?.[1];
-  const isSettings = location.pathname === "/settings";
+  const isSettings = activeRepoId
+    ? location.pathname === `/repos/${activeRepoId}/settings`
+    : location.pathname === "/settings";
   const isValidate = activeRepoId && location.pathname === `/repos/${activeRepoId}/validate`;
 
   return (
@@ -146,7 +148,7 @@ export function ProjectRail() {
         <Tooltip content="Settings">
           <button
             onClick={() =>
-              navigate(activeRepoId ? `/settings?repo=${activeRepoId}` : "/settings")
+              navigate(activeRepoId ? `/repos/${activeRepoId}/settings` : "/")
             }
             className={cn(
               "w-9 h-9 flex items-center justify-center transition-all duration-200",

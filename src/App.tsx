@@ -30,9 +30,9 @@ export default function App() {
           <Route path="/repos/:repoId/roadmap" element={<RoadmapView />} />
           <Route path="/repos/:repoId/impact" element={<ImpactView />} />
           <Route path="/repos/:repoId/validate" element={<ValidateView />} />
+          <Route path="/repos/:repoId/settings" element={<SettingsView />} />
           <Route path="/repos/:repoId/items/new" element={<NewItemView />} />
           <Route path="/repos/:repoId/items/:itemId" element={<ItemView />} />
-          <Route path="/settings" element={<SettingsView />} />
         </Routes>
       </AppShell>
       <Toaster
