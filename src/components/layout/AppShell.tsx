@@ -19,7 +19,7 @@ export function AppShell({ children }: AppShellProps) {
         <div data-tauri-drag-region className="w-[60px] h-full shrink-0" />
 
         {/* Middle zone: matches Sidebar width — draggable empty space */}
-        <div data-tauri-drag-region className="w-56 h-full shrink-0" />
+        <div data-tauri-drag-region className="w-52 h-full shrink-0" />
 
         {/* Toolbar slot */}
         <div className="flex-1 flex items-center min-w-0 px-1">
