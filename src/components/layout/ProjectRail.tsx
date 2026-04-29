@@ -47,7 +47,7 @@ export function ProjectRail() {
   const isSettings = location.pathname === "/settings";
 
   return (
-    <div className="w-[60px] h-full bg-card flex flex-col items-center py-3 shrink-0 border-r border-border/40">
+    <div className="w-[60px] h-full flex flex-col items-center py-3 shrink-0 border-r border-dashed border-border/70" style={{ backgroundColor: "hsl(240, 24%, 7%)" }}>
       {/* Repo icons */}
       <div className="flex flex-col items-center gap-1.5 flex-1 overflow-y-auto w-full scrollbar-none">
         {repos?.map((repo) => {

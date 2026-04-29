@@ -21,7 +21,7 @@
     --accent-foreground: 240 10% 90%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 13% 19%;            /* #252638  subtle dividers */
+    --border: 240 13% 16%;            /* separators — darker */
     --input: 240 15% 16%;
     --ring: 244 76% 65%;
     --radius: 0.5rem;
