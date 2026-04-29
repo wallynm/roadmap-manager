@@ -39,7 +39,7 @@ async function applyOptimistic(
   return { itemId, prevItem, prevLists };
 }
 
-function revertOptimistic(qc: QueryClient, snap?: Snapshot) {
+function revertOptimistic(qc: QueryClient, snap?: Snapshot, err?: unknown) {
   if (!snap) return;
   if (snap.prevItem) {
     qc.setQueryData(["item", snap.itemId], snap.prevItem);
@@ -47,7 +47,8 @@ function revertOptimistic(qc: QueryClient, snap?: Snapshot) {
   snap.prevLists.forEach(([key, data]) => {
     qc.setQueryData(key, data);
   });
-  toast.error("Operação falhou — alterações revertidas");
+  const detail = typeof err === "string" ? err : err instanceof Error ? err.message : null;
+  toast.error(detail ? `Operação falhou — ${detail}` : "Operação falhou — alterações revertidas");
 }
 
 function syncAfterMutation(qc: QueryClient, itemId: string) {
@@ -119,7 +120,7 @@ export function useUpdateItem() {
         ...(params.title !== undefined && { title: params.title }),
         ...(params.body !== undefined && { body: params.body }),
       })),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, params) => syncAfterMutation(qc, params.id),
   });
 }
@@ -134,7 +135,7 @@ export function useStartItem() {
         status: "in_progress" as ItemStatus,
         started_date: item.started_date ?? today(),
       })),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, id) => syncAfterMutation(qc, id),
   });
 }
@@ -149,7 +150,7 @@ export function useCompleteItem() {
         status: "done" as ItemStatus,
         completed_date: today(),
       })),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, { id }) => syncAfterMutation(qc, id),
   });
 }
@@ -164,7 +165,7 @@ export function useCancelItem() {
         status: "canceled" as ItemStatus,
         completed_date: today(),
       })),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, { id }) => syncAfterMutation(qc, id),
   });
 }
@@ -181,7 +182,7 @@ export function useMarkDuplicate() {
         duplicate_of: originalId,
         completed_date: today(),
       })),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, { id }) => syncAfterMutation(qc, id),
   });
 }
@@ -195,7 +196,7 @@ export function usePlanItem() {
         ...item,
         status: "todo" as ItemStatus,
       })),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, id) => syncAfterMutation(qc, id),
   });
 }
@@ -211,7 +212,7 @@ export function useAddDependency() {
         if (!deps.includes(blockerId)) deps.push(blockerId);
         return { ...item, depends_on: JSON.stringify(deps) };
       }),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, { id }) => syncAfterMutation(qc, id),
   });
 }
@@ -226,7 +227,7 @@ export function useRemoveDependency() {
         const deps = safeJsonArray(item.depends_on).filter((d) => d !== blockerId);
         return { ...item, depends_on: JSON.stringify(deps) };
       }),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, { id }) => syncAfterMutation(qc, id),
   });
 }
@@ -242,7 +243,7 @@ export function useAddRelation() {
         if (!rels.includes(relatedId)) rels.push(relatedId);
         return { ...item, relates_to: JSON.stringify(rels) };
       }),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, { id }) => syncAfterMutation(qc, id),
   });
 }
@@ -257,7 +258,7 @@ export function useRemoveRelation() {
         const rels = safeJsonArray(item.relates_to).filter((r) => r !== relatedId);
         return { ...item, relates_to: JSON.stringify(rels) };
       }),
-    onError: (_err, _vars, ctx) => revertOptimistic(qc, ctx),
+    onError: (err, _vars, ctx) => revertOptimistic(qc, ctx, err),
     onSettled: (_d, _e, { id }) => syncAfterMutation(qc, id),
   });
 }

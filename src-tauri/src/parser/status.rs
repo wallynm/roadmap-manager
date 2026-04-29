@@ -36,8 +36,8 @@ impl ItemStatus {
 
     pub fn allowed_transitions(&self) -> Vec<ItemStatus> {
         match self {
-            Self::Backlog => vec![Self::Todo, Self::InProgress, Self::Canceled, Self::Duplicate],
-            Self::Todo => vec![Self::Backlog, Self::InProgress, Self::Canceled, Self::Duplicate],
+            Self::Backlog => vec![Self::Todo, Self::InProgress, Self::Done, Self::Canceled, Self::Duplicate],
+            Self::Todo => vec![Self::Backlog, Self::InProgress, Self::Done, Self::Canceled, Self::Duplicate],
             Self::InProgress => vec![
                 Self::Backlog,
                 Self::Todo,
