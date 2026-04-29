@@ -18,7 +18,7 @@ fn yaml_value(v: &str) -> String {
     }
     let needs_quote = v.contains(": ")
         || v.contains('#')
-        || v.starts_with(|c: char| matches!(c, '[' | '{' | '>' | '|' | '!' | '&' | '*' | '\''))
+        || v.starts_with(|c: char| matches!(c, '[' | '{' | '>' | '|' | '!' | '&' | '*' | '\'' | '`' | '@'))
         || v.contains('"')
         || v.contains('\\');
     if needs_quote {
@@ -63,11 +63,20 @@ pub fn render(item: &Item, template: &TemplateConfig) -> String {
                     Some(format!("[{}]", deps.join(", ")))
                 }
             }
+            "relates-to" => {
+                let rels: Vec<String> =
+                    serde_json::from_str(&item.relates_to).unwrap_or_default();
+                if rels.is_empty() {
+                    Some("[]".to_string())
+                } else {
+                    Some(format!("[{}]", rels.join(", ")))
+                }
+            }
             "duplicate-of" => item.duplicate_of.clone(),
             _ => None,
         };
 
-        let is_literal_array = matches!(field.as_str(), "labels" | "depends-on");
+        let is_literal_array = matches!(field.as_str(), "labels" | "depends-on" | "relates-to");
         if let Some(v) = value {
             if is_literal_array {
                 fm_lines.push(format!("{}: {}", field, v));

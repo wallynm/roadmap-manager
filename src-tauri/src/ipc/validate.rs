@@ -77,6 +77,8 @@ pub async fn deps_check(
     Ok(validator::deps::analyze(&all_items))
 }
 
+const IMPACT_CACHE_KEY: &str = "impact_ranking";
+
 #[tauri::command]
 pub async fn impact_ranking(
     pool: State<'_, SqlitePool>,
@@ -85,7 +87,34 @@ pub async fn impact_ranking(
     let all_items = items::list_by_repo(&pool, &repo_id, None)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(validator::impact::rank_by_impact(&all_items))
+
+    let ranking = validator::impact::rank_by_impact(&all_items);
+
+    if let Ok(json) = serde_json::to_string(&ranking) {
+        crate::db::cache::upsert(&pool, &repo_id, IMPACT_CACHE_KEY, &json)
+            .await
+            .ok();
+    }
+
+    Ok(ranking)
+}
+
+#[tauri::command]
+pub async fn get_impact_cache(
+    pool: State<'_, SqlitePool>,
+    repo_id: String,
+) -> Result<Option<Vec<validator::impact::RankedItem>>, String> {
+    let raw = crate::db::cache::get(&pool, &repo_id, IMPACT_CACHE_KEY)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    match raw {
+        None => Ok(None),
+        Some(json) => {
+            let ranking = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+            Ok(Some(ranking))
+        }
+    }
 }
 
 #[tauri::command]

@@ -54,13 +54,22 @@ export function useDepsCheck(repoId: string) {
   });
 }
 
+export function useImpactRankingCache(repoId: string) {
+  return useQuery<RankedItem[] | null>({
+    queryKey: ["impact-ranking-cache", repoId],
+    queryFn: () => api.getCachedImpactRanking(repoId),
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+}
+
 export function useImpactRanking(repoId: string) {
-  const queryClient = useQueryClient();
-  return useMutation<RankedItem[], Error, void>({
-    mutationFn: () => api.impactRanking(repoId),
-    onSuccess: (data) => {
-      queryClient.setQueryData(["impact-ranking", repoId], data);
-    },
+  return useQuery<RankedItem[]>({
+    queryKey: ["impact-ranking", repoId],
+    queryFn: () => api.impactRanking(repoId),
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 }
 

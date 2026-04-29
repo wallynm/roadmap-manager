@@ -87,6 +87,7 @@ pub async fn reconcile_external_edit(
         parser::extract_string(&parsed.yaml, "priority").and_then(|p| parser::normalize_priority(&p));
     let labels = parser::extract_string_array(&parsed.yaml, "labels");
     let depends_on = parser::extract_string_array(&parsed.yaml, "depends-on");
+    let relates_to = parser::extract_string_array(&parsed.yaml, "relates-to");
     let created_date = parser::extract_string(&parsed.yaml, "created-date");
     let started_date = parser::extract_string(&parsed.yaml, "started-date");
     let completed_date = parser::extract_string(&parsed.yaml, "completed-date");
@@ -102,6 +103,7 @@ pub async fn reconcile_external_edit(
             item.priority = priority;
             item.labels = serde_json::to_string(&labels).unwrap_or_default();
             item.depends_on = serde_json::to_string(&depends_on).unwrap_or_default();
+            item.relates_to = serde_json::to_string(&relates_to).unwrap_or_default();
             item.duplicate_of = duplicate_of;
             item.created_date = created_date;
             item.started_date = started_date;
@@ -116,6 +118,8 @@ pub async fn reconcile_external_edit(
                 Some(&item.id),
             )
             .await?;
+
+            let _ = crate::roadmap::regenerate(pool, repo_id).await;
 
             Ok(ReconcileOutcome::Updated(item.id))
         }
@@ -144,6 +148,7 @@ pub async fn reconcile_external_edit(
                 priority,
                 labels: serde_json::to_string(&labels).unwrap_or_default(),
                 depends_on: serde_json::to_string(&depends_on).unwrap_or_default(),
+                relates_to: serde_json::to_string(&relates_to).unwrap_or_default(),
                 duplicate_of,
                 created_date,
                 started_date,
@@ -161,6 +166,8 @@ pub async fn reconcile_external_edit(
                 Some(&inserted.id),
             )
             .await?;
+
+            let _ = crate::roadmap::regenerate(pool, repo_id).await;
 
             Ok(ReconcileOutcome::Created(inserted.id))
         }

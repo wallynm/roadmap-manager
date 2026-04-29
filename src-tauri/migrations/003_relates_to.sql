@@ -1,0 +1,1 @@
+ALTER TABLE items ADD COLUMN relates_to TEXT NOT NULL DEFAULT '[]';

@@ -117,6 +117,7 @@ pub async fn create_item(
         priority: item_priority,
         labels: serde_json::to_string(&item_labels).unwrap_or_default(),
         depends_on: "[]".to_string(),
+        relates_to: "[]".to_string(),
         duplicate_of: None,
         created_date: Some(today.clone()),
         started_date: None,
@@ -572,6 +573,124 @@ pub async fn remove_dependency(
 
     vcs::auto_commit(&repo, &abs_path, &updated, "dependency removed", None)
         .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn add_relation(
+    pool: State<'_, SqlitePool>,
+    id: String,
+    related_id: String,
+) -> Result<items::Item, String> {
+    let mut item = items::get(&pool, &id).await.map_err(|e| e.to_string())?;
+    let mut target = items::get_by_external_id(&pool, &item.repo_id, &related_id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Related item {} not found in this repo", related_id))?;
+
+    let repo = repos::get(&pool, &item.repo_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let config: RepoConfig =
+        serde_json::from_str(&repo.config).map_err(|e| e.to_string())?;
+
+    let mut rels: Vec<String> = serde_json::from_str(&item.relates_to).unwrap_or_default();
+    if !rels.contains(&related_id) {
+        rels.push(related_id.clone());
+    }
+    item.relates_to = serde_json::to_string(&rels).unwrap_or_default();
+
+    let template = config.templates.get(&item.item_type).ok_or("Unknown type")?;
+    let content = writer::render(&item, template);
+    item.file_hash = writer::compute_hash(&content);
+    item.frontmatter = content.split("---").nth(1).unwrap_or_default().trim().to_string();
+
+    let abs_path = PathBuf::from(&repo.path).join(&item.file_path);
+    writer::write_atomic(&abs_path, &content)
+        .await
+        .map_err(|e| e.to_string())?;
+    let updated = items::update(&pool, &item).await.map_err(|e| e.to_string())?;
+    vcs::auto_commit(&repo, &abs_path, &updated, "relation added", None)
+        .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    let mut reverse_rels: Vec<String> =
+        serde_json::from_str(&target.relates_to).unwrap_or_default();
+    if !reverse_rels.contains(&item.external_id) {
+        reverse_rels.push(item.external_id.clone());
+        target.relates_to = serde_json::to_string(&reverse_rels).unwrap_or_default();
+
+        let target_template = config.templates.get(&target.item_type).ok_or("Unknown type")?;
+        let target_content = writer::render(&target, target_template);
+        target.file_hash = writer::compute_hash(&target_content);
+        target.frontmatter = target_content.split("---").nth(1).unwrap_or_default().trim().to_string();
+
+        let target_abs = PathBuf::from(&repo.path).join(&target.file_path);
+        writer::write_atomic(&target_abs, &target_content)
+            .await
+            .map_err(|e| e.to_string())?;
+        items::update(&pool, &target).await.map_err(|e| e.to_string())?;
+        vcs::auto_commit(&repo, &target_abs, &target, "reverse relation added", None)
+            .map_err(|e| format!("auto-commit failed: {}", e))?;
+    }
+
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn remove_relation(
+    pool: State<'_, SqlitePool>,
+    id: String,
+    related_id: String,
+) -> Result<items::Item, String> {
+    let mut item = items::get(&pool, &id).await.map_err(|e| e.to_string())?;
+
+    let repo = repos::get(&pool, &item.repo_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let config: RepoConfig =
+        serde_json::from_str(&repo.config).map_err(|e| e.to_string())?;
+
+    let mut rels: Vec<String> = serde_json::from_str(&item.relates_to).unwrap_or_default();
+    rels.retain(|r| r != &related_id);
+    item.relates_to = serde_json::to_string(&rels).unwrap_or_default();
+
+    let template = config.templates.get(&item.item_type).ok_or("Unknown type")?;
+    let content = writer::render(&item, template);
+    item.file_hash = writer::compute_hash(&content);
+    item.frontmatter = content.split("---").nth(1).unwrap_or_default().trim().to_string();
+
+    let abs_path = PathBuf::from(&repo.path).join(&item.file_path);
+    writer::write_atomic(&abs_path, &content)
+        .await
+        .map_err(|e| e.to_string())?;
+    let updated = items::update(&pool, &item).await.map_err(|e| e.to_string())?;
+    vcs::auto_commit(&repo, &abs_path, &updated, "relation removed", None)
+        .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    if let Ok(Some(mut target)) =
+        items::get_by_external_id(&pool, &item.repo_id, &related_id).await
+    {
+        let mut reverse_rels: Vec<String> =
+            serde_json::from_str(&target.relates_to).unwrap_or_default();
+        if reverse_rels.contains(&item.external_id) {
+            reverse_rels.retain(|r| r != &item.external_id);
+            target.relates_to = serde_json::to_string(&reverse_rels).unwrap_or_default();
+
+            let target_template = config.templates.get(&target.item_type).ok_or("Unknown type")?;
+            let target_content = writer::render(&target, target_template);
+            target.file_hash = writer::compute_hash(&target_content);
+            target.frontmatter = target_content.split("---").nth(1).unwrap_or_default().trim().to_string();
+
+            let target_abs = PathBuf::from(&repo.path).join(&target.file_path);
+            writer::write_atomic(&target_abs, &target_content)
+                .await
+                .map_err(|e| e.to_string())?;
+            items::update(&pool, &target).await.map_err(|e| e.to_string())?;
+            vcs::auto_commit(&repo, &target_abs, &target, "reverse relation removed", None)
+                .map_err(|e| format!("auto-commit failed: {}", e))?;
+        }
+    }
 
     Ok(updated)
 }

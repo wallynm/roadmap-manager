@@ -21,6 +21,7 @@ pub struct Item {
     pub priority: Option<String>,
     pub labels: String,
     pub depends_on: String,
+    pub relates_to: String,
     pub duplicate_of: Option<String>,
     pub created_date: Option<String>,
     pub started_date: Option<String>,
@@ -128,7 +129,7 @@ pub async fn get_by_path(
 
 pub async fn insert(pool: &SqlitePool, item: &Item) -> AppResult<Item> {
     sqlx::query(
-        "INSERT INTO items (id, repo_id, external_id, scope, type, title, file_path, file_hash, body, frontmatter, status, priority, labels, depends_on, duplicate_of, created_date, started_date, completed_date, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO items (id, repo_id, external_id, scope, type, title, file_path, file_hash, body, frontmatter, status, priority, labels, depends_on, relates_to, duplicate_of, created_date, started_date, completed_date, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(&item.id)
     .bind(&item.repo_id)
@@ -144,6 +145,7 @@ pub async fn insert(pool: &SqlitePool, item: &Item) -> AppResult<Item> {
     .bind(&item.priority)
     .bind(&item.labels)
     .bind(&item.depends_on)
+    .bind(&item.relates_to)
     .bind(&item.duplicate_of)
     .bind(&item.created_date)
     .bind(&item.started_date)
@@ -158,7 +160,7 @@ pub async fn insert(pool: &SqlitePool, item: &Item) -> AppResult<Item> {
 pub async fn update(pool: &SqlitePool, item: &Item) -> AppResult<Item> {
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     sqlx::query(
-        "UPDATE items SET title=?, body=?, frontmatter=?, file_hash=?, status=?, priority=?, labels=?, depends_on=?, duplicate_of=?, started_date=?, completed_date=?, updated_at=? WHERE id=?"
+        "UPDATE items SET title=?, body=?, frontmatter=?, file_hash=?, status=?, priority=?, labels=?, depends_on=?, relates_to=?, duplicate_of=?, started_date=?, completed_date=?, updated_at=? WHERE id=?"
     )
     .bind(&item.title)
     .bind(&item.body)
@@ -168,6 +170,7 @@ pub async fn update(pool: &SqlitePool, item: &Item) -> AppResult<Item> {
     .bind(&item.priority)
     .bind(&item.labels)
     .bind(&item.depends_on)
+    .bind(&item.relates_to)
     .bind(&item.duplicate_of)
     .bind(&item.started_date)
     .bind(&item.completed_date)

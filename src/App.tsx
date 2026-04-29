@@ -8,6 +8,7 @@ import { ItemView } from "@/pages/ItemView";
 import { NewItemView } from "@/pages/NewItemView";
 import { SettingsView } from "@/pages/SettingsView";
 import { RoadmapView } from "@/pages/RoadmapView";
+import { ImpactView } from "@/pages/ImpactView";
 import { useRepos } from "@/hooks/useRepos";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useItemEvents } from "@/hooks/useItems";
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/" element={<DefaultRedirect />} />
           <Route path="/repos/:repoId" element={<RepoView />} />
           <Route path="/repos/:repoId/roadmap" element={<RoadmapView />} />
+          <Route path="/repos/:repoId/impact" element={<ImpactView />} />
           <Route path="/repos/:repoId/items/new" element={<NewItemView />} />
           <Route path="/repos/:repoId/items/:itemId" element={<ItemView />} />
           <Route path="/settings" element={<SettingsView />} />

@@ -3,17 +3,18 @@ import {
   useItem, useItems, useUpdateItem, useStartItem, useCompleteItem,
   useCancelItem, usePlanItem, useItemComments,
   useAddDependency, useRemoveDependency,
+  useAddRelation, useRemoveRelation,
 } from "@/hooks/useItems";
 import { useRepos } from "@/hooks/useRepos";
 import { BlockNoteEditor } from "@/components/editor/BlockNoteEditor";
 import { CommentList } from "@/components/comments/CommentList";
 import { Button } from "@/components/ui/Button";
-import { STATUS_CONFIG, PRIORITY_CONFIG, parseLabels, parseDependsOn, formatDate } from "@/lib/utils";
+import { STATUS_CONFIG, PRIORITY_CONFIG, parseLabels, parseDependsOn, parseRelatesTo, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Item, ItemStatus, Priority } from "@/types";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Save, ChevronDown, X, Lock, Plus } from "lucide-react";
+import { ChevronRight, Save, ChevronDown, X, Lock, Plus, Link2 } from "lucide-react";
 
 function extractFirstHeading(markdown: string): string | null {
   const match = /^#\s+(.+)/m.exec(markdown);
@@ -205,12 +206,15 @@ export function ItemView() {
   const planItem = usePlanItem();
   const addDep = useAddDependency();
   const removeDep = useRemoveDependency();
+  const addRel = useAddRelation();
+  const removeRel = useRemoveRelation();
 
   const [editTitle, setEditTitle] = useState("");
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [note, setNote] = useState("");
   const [labelInput, setLabelInput] = useState("");
   const [depInput, setDepInput] = useState("");
+  const [relInput, setRelInput] = useState("");
   const bodyRef = useRef("");
 
   useEffect(() => {
@@ -239,6 +243,7 @@ export function ItemView() {
 
   const labels = parseLabels(item.labels);
   const deps = parseDependsOn(item.depends_on);
+  const relations = parseRelatesTo(item.relates_to);
 
   const handleSave = () => {
     const fullBody = `# ${editTitle}\n\n${bodyRef.current}`;
@@ -297,6 +302,10 @@ export function ItemView() {
 
   const handleRemoveDep = (externalId: string) => {
     removeDep.mutate({ id: item.id, blockerId: externalId });
+  };
+
+  const handleRemoveRelation = (externalId: string) => {
+    removeRel.mutate({ id: item.id, relatedId: externalId });
   };
 
   return (
@@ -483,6 +492,37 @@ export function ItemView() {
               onSelect={(selected) => {
                 addDep.mutate({ id: item.id, blockerId: selected.external_id }, {
                   onSuccess: () => { setDepInput(""); toast.success(`Dependency added: ${selected.external_id}`); },
+                });
+              }}
+            />
+          </div>
+
+          {/* Relations */}
+          <SectionLabel>Related</SectionLabel>
+          <div className="px-2 space-y-1.5">
+            {relations.length > 0 && (
+              <div className="space-y-1">
+                {relations.map((r) => (
+                  <div key={r} className="flex items-center gap-1.5 text-xs text-muted-foreground group/rel">
+                    <Link2 className="w-3 h-3 text-violet-400 shrink-0" />
+                    <span className="font-mono flex-1">{r}</span>
+                    <button
+                      onClick={() => handleRemoveRelation(r)}
+                      className="opacity-0 group-hover/rel:opacity-100 hover:text-foreground transition-all"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <DepAutocomplete
+              query={relInput}
+              onQueryChange={setRelInput}
+              allItems={allItems.filter((i) => i.id !== item.id && !relations.includes(i.external_id) && !deps.includes(i.external_id))}
+              onSelect={(selected) => {
+                addRel.mutate({ id: item.id, relatedId: selected.external_id }, {
+                  onSuccess: () => { setRelInput(""); toast.success(`Related: ${selected.external_id}`); },
                 });
               }}
             />

@@ -48,6 +48,15 @@ pub struct RepoConfig {
     pub auto_commit: AutoCommitConfig,
     #[serde(rename = "branchPolicy", default)]
     pub branch_policy: BranchPolicyConfig,
+    #[serde(default)]
+    pub roadmap: RoadmapConfig,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct RoadmapConfig {
+    /// Headings (e.g. "## Description") whose content is preserved across regenerations.
+    #[serde(rename = "preservedSections", default)]
+    pub preserved_sections: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -256,6 +265,7 @@ pub fn default_config() -> RepoConfig {
         },
         auto_commit: AutoCommitConfig::default(),
         branch_policy: BranchPolicyConfig::default(),
+        roadmap: RoadmapConfig::default(),
     }
 }
 
@@ -395,6 +405,7 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
             .and_then(|p| parser::normalize_priority(&p));
         let labels = parser::extract_string_array(&parsed.yaml, "labels");
         let depends_on = parser::extract_string_array(&parsed.yaml, "depends-on");
+        let relates_to = parser::extract_string_array(&parsed.yaml, "relates-to");
         let created_date = parser::extract_string(&parsed.yaml, "created-date");
         let started_date = parser::extract_string(&parsed.yaml, "started-date");
         let completed_date = parser::extract_string(&parsed.yaml, "completed-date");
@@ -422,6 +433,8 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
                     updated.labels = serde_json::to_string(&labels).unwrap_or_default();
                     updated.depends_on =
                         serde_json::to_string(&depends_on).unwrap_or_default();
+                    updated.relates_to =
+                        serde_json::to_string(&relates_to).unwrap_or_default();
                     updated.duplicate_of = duplicate_of;
                     updated.created_date = created_date;
                     updated.started_date = started_date;
@@ -448,6 +461,7 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
                     priority,
                     labels: serde_json::to_string(&labels).unwrap_or_default(),
                     depends_on: serde_json::to_string(&depends_on).unwrap_or_default(),
+                    relates_to: serde_json::to_string(&relates_to).unwrap_or_default(),
                     duplicate_of,
                     created_date,
                     started_date,

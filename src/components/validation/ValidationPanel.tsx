@@ -3,7 +3,6 @@ import {
   useValidateRepo,
   useFixRepo,
   useDepsCheck,
-  useImpactRanking,
   useArchiveDryRun,
   useArchiveExecute,
 } from "@/hooks/useValidation";
@@ -12,7 +11,6 @@ import type {
   ValidationIssue,
   DepAnalysis,
   DepIssue,
-  RankedItem,
   ArchiveDryRun,
 } from "@/types";
 import { cn } from "@/lib/utils";
@@ -27,7 +25,6 @@ import {
   Wrench,
   Archive,
   GitBranch,
-  TrendingUp,
 } from "lucide-react";
 
 interface Props {
@@ -170,35 +167,6 @@ function DepSection({ analysis }: { analysis: DepAnalysis }) {
   );
 }
 
-function ImpactSection({ ranking }: { ranking: RankedItem[] }) {
-  const top10 = ranking.slice(0, 10);
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <TrendingUp className="w-4 h-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Impact Ranking</h3>
-        <span className="text-xs text-muted-foreground ml-2">Top blockers</span>
-      </div>
-      {top10.length === 0 ? (
-        <p className="text-xs text-muted-foreground px-4">No active items with dependents.</p>
-      ) : (
-        <div className="space-y-1">
-          {top10.map((r, i) => (
-            <div key={r.id} className="flex items-center gap-3 px-4 py-1.5 text-sm">
-              <span className="text-xs text-muted-foreground w-5 text-right">{i + 1}.</span>
-              <span className="font-mono text-xs">{r.external_id}</span>
-              {r.unblocks > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary">
-                  unblocks {r.unblocks}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ArchiveSection({
   repoId,
@@ -272,18 +240,23 @@ export function ValidationPanel({ repoId, onFileClick }: Props) {
   const validateMutation = useValidateRepo(repoId);
   const fixMutation = useFixRepo(repoId);
   const depsMutation = useDepsCheck(repoId);
-  const impactMutation = useImpactRanking(repoId);
   const archiveDryRunMutation = useArchiveDryRun(repoId);
 
   const report = validateMutation.data ?? null;
   const depsAnalysis = depsMutation.data ?? null;
-  const impactRanking = impactMutation.data ?? null;
   const archiveDryRun = archiveDryRunMutation.data ?? null;
 
   const runAll = () => {
     validateMutation.mutate();
     depsMutation.mutate();
-    impactMutation.mutate();
+  };
+
+  const handleFixAll = () => {
+    fixMutation.mutate(undefined, {
+      onSuccess: () => {
+        validateMutation.mutate();
+      },
+    });
   };
 
   return (
@@ -293,16 +266,16 @@ export function ValidationPanel({ repoId, onFileClick }: Props) {
         <div className="flex items-center gap-2">
           {report && report.failing > 0 && (
             <button
-              onClick={() => fixMutation.mutate()}
-              disabled={fixMutation.isPending}
+              onClick={handleFixAll}
+              disabled={fixMutation.isPending || validateMutation.isPending}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                 "bg-amber-500/15 text-amber-400 hover:bg-amber-500/25",
                 "disabled:opacity-50"
               )}
             >
-              <Wrench className={cn("w-3 h-3", fixMutation.isPending && "animate-spin")} />
-              {fixMutation.isPending ? "Fixing..." : "Fix all"}
+              <Wrench className={cn("w-3 h-3", (fixMutation.isPending || validateMutation.isPending) && "animate-spin")} />
+              {fixMutation.isPending ? "Fixing..." : validateMutation.isPending ? "Re-checking..." : "Fix all"}
             </button>
           )}
           <button
@@ -362,8 +335,6 @@ export function ValidationPanel({ repoId, onFileClick }: Props) {
       )}
 
       {depsAnalysis && <DepSection analysis={depsAnalysis} />}
-
-      {impactRanking && <ImpactSection ranking={impactRanking} />}
 
       <ArchiveSection
         repoId={repoId}

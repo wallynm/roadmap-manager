@@ -37,6 +37,9 @@ pub fn run() {
                         let _ = watcher_pool
                             .add_repo(repo, pool.clone(), handle.clone())
                             .await;
+                        // Catch any edits made while the app was closed
+                        let _ = scanner::scan_repo(&pool, &repo.id).await;
+                        let _ = crate::roadmap::regenerate(&pool, &repo.id).await;
                     }
                 }
 
@@ -70,6 +73,8 @@ pub fn run() {
             ipc::items::update_item,
             ipc::items::add_dependency,
             ipc::items::remove_dependency,
+            ipc::items::add_relation,
+            ipc::items::remove_relation,
             ipc::items::add_comment,
             ipc::items::get_item_comments,
             ipc::items::get_notifications,
@@ -85,6 +90,7 @@ pub fn run() {
             ipc::validate::fix_repo,
             ipc::validate::deps_check,
             ipc::validate::impact_ranking,
+            ipc::validate::get_impact_cache,
             ipc::validate::stale_items,
             ipc::archive::archive_dry_run,
             ipc::archive::archive_execute,

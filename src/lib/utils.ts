@@ -48,6 +48,14 @@ export function parseDependsOn(json: string): string[] {
   }
 }
 
+export function parseRelatesTo(json: string): string[] {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return [];
+  }
+}
+
 export function formatAge(dateStr: string | null): string {
   if (!dateStr) { return ""; }
   const date = new Date(dateStr);

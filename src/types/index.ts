@@ -22,6 +22,7 @@ export interface Item {
   priority: Priority | null;
   labels: string;
   depends_on: string;
+  relates_to: string;
   duplicate_of: string | null;
   created_date: string | null;
   started_date: string | null;

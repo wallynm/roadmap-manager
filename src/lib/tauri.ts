@@ -77,6 +77,10 @@ export const api = {
     invoke<Item>("add_dependency", { id, blockerId }),
   removeDependency: (id: string, blockerId: string) =>
     invoke<Item>("remove_dependency", { id, blockerId }),
+  addRelation: (id: string, relatedId: string) =>
+    invoke<Item>("add_relation", { id, relatedId }),
+  removeRelation: (id: string, relatedId: string) =>
+    invoke<Item>("remove_relation", { id, relatedId }),
   addComment: (itemId: string, body: string, author?: string) =>
     invoke<Item>("add_comment", { itemId, body, author }),
   getItemComments: (itemId: string) => invoke<Comment[]>("get_item_comments", { itemId }),
@@ -112,6 +116,8 @@ export const api = {
     invoke<DepAnalysis>("deps_check", { repoId }),
   impactRanking: (repoId: string) =>
     invoke<RankedItem[]>("impact_ranking", { repoId }),
+  getCachedImpactRanking: (repoId: string) =>
+    invoke<RankedItem[] | null>("get_impact_cache", { repoId }),
   staleItems: (repoId: string, staleDays: number) =>
     invoke<Item[]>("stale_items", { repoId, staleDays }),
   regenerateIndexes: (repoId: string) =>
