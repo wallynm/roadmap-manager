@@ -1,4 +1,5 @@
-import { useDraggable } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Lock } from "lucide-react";
 import type { Item, Priority } from "@/types";
 import { cn, parseLabels, parseDependsOn, formatAge, PRIORITY_CONFIG } from "@/lib/utils";
@@ -6,42 +7,77 @@ import { cn, parseLabels, parseDependsOn, formatAge, PRIORITY_CONFIG } from "@/l
 interface ItemCardProps {
   item: Item;
   onClick: () => void;
-  isDragging?: boolean;
+  isGhost?: boolean;   // rendered in-place as placeholder while dragging
+  isOverlay?: boolean; // rendered in DragOverlay as the floating card
 }
 
 const PRIORITY_BORDER: Record<string, string> = {
   Urgente: "border-l-red-600",
-  Alta: "border-l-red-400",
-  Média: "border-l-amber-400",
-  Baixa: "border-l-sky-400",
+  Alta:    "border-l-red-400",
+  Média:   "border-l-amber-400",
+  Baixa:   "border-l-sky-400",
   Nenhuma: "border-l-transparent",
 };
 
-export function ItemCard({ item, onClick, isDragging }: ItemCardProps) {
-  const { attributes, listeners, setNodeRef, isDragging: isBeingDragged } = useDraggable({ id: item.id });
+export function ItemCard({ item, onClick, isGhost = false, isOverlay = false }: ItemCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const labels = parseLabels(item.labels);
   const deps = parseDependsOn(item.depends_on);
   const priorityConfig = item.priority ? PRIORITY_CONFIG[item.priority as Priority] : null;
-  const borderClass = item.priority ? PRIORITY_BORDER[item.priority] ?? "border-l-transparent" : "border-l-transparent";
+  const borderClass = item.priority
+    ? PRIORITY_BORDER[item.priority] ?? "border-l-transparent"
+    : "border-l-transparent";
+
+  // Ghost: shown in the column at the insertion point while card is being dragged
+  if (isGhost) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={{ ...style, minHeight: "76px" }}
+        className={cn(
+          "rounded-lg border-2 border-dashed border-primary/40 bg-primary/5",
+          "border-l-[3px]",
+          borderClass,
+          "pointer-events-none"
+        )}
+      />
+    );
+  }
 
   return (
     <div
       ref={setNodeRef}
+      style={style}
       {...listeners}
       {...attributes}
       onClick={onClick}
       className={cn(
-        "bg-card border border-border rounded-lg p-3 cursor-pointer hover:border-primary/50 transition-colors",
+        "bg-card border border-border rounded-lg p-3 cursor-pointer select-none",
+        "hover:border-primary/50 transition-colors",
         "border-l-[3px]",
         borderClass,
-        isBeingDragged && "opacity-0 pointer-events-none",
-        isDragging && "shadow-xl ring-1 ring-primary/40 cursor-grabbing"
+        isOverlay && "shadow-2xl ring-1 ring-primary/40 cursor-grabbing rotate-1 scale-[1.02]"
       )}
     >
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs text-muted-foreground font-mono">{item.external_id}</span>
         {priorityConfig && (
-          <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded", priorityConfig.bgColor, priorityConfig.color)}>
+          <span className={cn(
+            "text-[10px] font-semibold px-1.5 py-0.5 rounded",
+            priorityConfig.bgColor, priorityConfig.color
+          )}>
             {item.priority}
           </span>
         )}
