@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Item, Repo, ScanReport, Comment, Notification, AgentRun, ItemFilters } from "@/types";
+import type {
+  Item, Repo, ScanReport, Comment, Notification, AgentRun, ItemFilters,
+  ValidationReport, FixReport, ArchiveDryRun, ArchiveReport,
+  DepAnalysis, RankedItem, CheckboxCount, SubRoadmapStatus,
+} from "@/types";
 
 export interface RepoDisplay {
   color?: string;
@@ -39,6 +43,10 @@ export const api = {
   getRepo: (id: string) => invoke<Repo>("get_repo", { id }),
   updateRepo: (id: string, name: string, config: string) =>
     invoke<Repo>("update_repo", { id, name, config }),
+  getRoadmap: (repoId: string) =>
+    invoke<{ content: string; exists: boolean; path: string }>("get_roadmap", { repoId }),
+  regenerateRoadmap: (repoId: string) =>
+    invoke<{ content: string; exists: boolean; path: string }>("regenerate_roadmap", { repoId }),
 
   listItems: (repoId: string, filters?: ItemFilters) =>
     invoke<Item[]>("list_items", { repoId, filters }),
@@ -91,4 +99,25 @@ export const api = {
   agentGetRun: (runId: string) => invoke<AgentRun>("agent_get_run", { runId }),
   agentCancel: (runId: string) => invoke<void>("agent_cancel", { runId }),
   agentListRuns: (repoId?: string) => invoke<AgentRun[]>("agent_list_runs", { repoId }),
+
+  validateRepo: (repoId: string) =>
+    invoke<ValidationReport>("validate_repo", { repoId }),
+  fixRepo: (repoId: string) =>
+    invoke<FixReport>("fix_repo", { repoId }),
+  archiveDryRun: (repoId: string) =>
+    invoke<ArchiveDryRun>("archive_dry_run", { repoId }),
+  archiveExecute: (repoId: string) =>
+    invoke<ArchiveReport>("archive_execute", { repoId }),
+  depsCheck: (repoId: string) =>
+    invoke<DepAnalysis>("deps_check", { repoId }),
+  impactRanking: (repoId: string) =>
+    invoke<RankedItem[]>("impact_ranking", { repoId }),
+  staleItems: (repoId: string, staleDays: number) =>
+    invoke<Item[]>("stale_items", { repoId, staleDays }),
+  regenerateIndexes: (repoId: string) =>
+    invoke<number>("regenerate_indexes", { repoId }),
+  getCheckboxCount: (repoId: string) =>
+    invoke<CheckboxCount>("get_checkbox_count", { repoId }),
+  getSubRoadmaps: (repoId: string) =>
+    invoke<SubRoadmapStatus[]>("get_sub_roadmaps", { repoId }),
 };

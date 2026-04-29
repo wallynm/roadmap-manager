@@ -3,6 +3,7 @@ import { Command } from "cmdk";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useRepos, useRescanRepo } from "@/hooks/useRepos";
 import { useItems } from "@/hooks/useItems";
+import { useValidateRepo, useArchiveDryRun } from "@/hooks/useValidation";
 import { STATUS_CONFIG, cn } from "@/lib/utils";
 import { Search } from "lucide-react";
 
@@ -23,6 +24,8 @@ export function CommandPalette() {
   const rescanRepo = useRescanRepo();
 
   const repoId = REPO_RE.exec(location.pathname)?.[1] ?? null;
+  const validateRepo = useValidateRepo(repoId ?? "");
+  const archiveDryRun = useArchiveDryRun(repoId ?? "");
   const searchActive = search.trim().length >= 2;
   const { data: itemResults } = useItems(
     searchActive ? repoId : null,
@@ -126,6 +129,31 @@ export function CommandPalette() {
                 </Command.Group>
 
                 <Command.Group heading="Actions" className="text-xs text-muted-foreground px-2 py-1">
+                  {repoId && (
+                    <>
+                      <Command.Item
+                        onSelect={() => {
+                          validateRepo.mutate();
+                          navigate(`/repos/${repoId}?tab=all`);
+                          setOpen(false);
+                          setSearch("");
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 text-sm rounded cursor-pointer hover:bg-accent data-[selected]:bg-accent"
+                      >
+                        Validate repo
+                      </Command.Item>
+                      <Command.Item
+                        onSelect={() => {
+                          archiveDryRun.mutate();
+                          setOpen(false);
+                          setSearch("");
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 text-sm rounded cursor-pointer hover:bg-accent data-[selected]:bg-accent"
+                      >
+                        Archive shipped items
+                      </Command.Item>
+                    </>
+                  )}
                   {repos?.map((repo) => (
                     <Command.Item
                       key={`rescan-${repo.id}`}

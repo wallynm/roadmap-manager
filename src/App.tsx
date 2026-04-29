@@ -7,9 +7,11 @@ import { RepoView } from "@/pages/RepoView";
 import { ItemView } from "@/pages/ItemView";
 import { NewItemView } from "@/pages/NewItemView";
 import { SettingsView } from "@/pages/SettingsView";
+import { RoadmapView } from "@/pages/RoadmapView";
 import { useRepos } from "@/hooks/useRepos";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useItemEvents } from "@/hooks/useItems";
+import { getLastRepoId, saveLastRepo } from "@/hooks/usePrefs";
 
 export default function App() {
   useKeyboardShortcuts();
@@ -23,6 +25,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DefaultRedirect />} />
           <Route path="/repos/:repoId" element={<RepoView />} />
+          <Route path="/repos/:repoId/roadmap" element={<RoadmapView />} />
           <Route path="/repos/:repoId/items/new" element={<NewItemView />} />
           <Route path="/repos/:repoId/items/:itemId" element={<ItemView />} />
           <Route path="/settings" element={<SettingsView />} />
@@ -46,7 +49,10 @@ export default function App() {
 function DefaultRedirect() {
   const { data: repos } = useRepos();
   if (repos && repos.length > 0) {
-    return <Navigate to={`/repos/${repos[0].id}`} replace />;
+    const lastId = getLastRepoId();
+    const target = repos.find((r) => r.id === lastId) ?? repos[0];
+    saveLastRepo(target.id);
+    return <Navigate to={`/repos/${target.id}`} replace />;
   }
   return (
     <div className="flex items-center justify-center h-full">

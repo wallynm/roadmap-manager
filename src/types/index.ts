@@ -121,3 +121,80 @@ export interface ItemFilters {
   search?: string;
   scope?: string;
 }
+
+export interface ValidationIssue {
+  file: string;
+  template: string;
+  missing: string[];
+  extra: string[];
+}
+
+export interface ValidationReport {
+  checked: number;
+  passing: number;
+  failing: number;
+  issues: ValidationIssue[];
+  orphan_files: string[];
+}
+
+export interface FixReport {
+  fixed: number;
+  skipped: number;
+  files: string[];
+}
+
+export interface ArchiveCandidate {
+  file_path: string;
+  target_path: string;
+  external_id: string;
+  title: string;
+}
+
+export interface ArchiveDryRun {
+  candidates: ArchiveCandidate[];
+  ref_updates: number;
+}
+
+export interface ArchiveReport {
+  moved: number;
+  refs_updated: number;
+  files: string[];
+}
+
+export interface DepIssue {
+  kind: "orphan" | "self_ref" | "cycle";
+  item_id: string;
+  external_id: string;
+  detail: string;
+}
+
+export interface DepAnalysis {
+  orphans: DepIssue[];
+  self_refs: DepIssue[];
+  cycles: DepIssue[];
+}
+
+export interface RankedItem {
+  id: string;
+  external_id: string;
+  unblocks: number;
+}
+
+export interface CheckboxCount {
+  pending: number;
+  completed: number;
+  unchecked_items: CheckboxItem[];
+}
+
+export interface CheckboxItem {
+  heading: string;
+  text: string;
+}
+
+export interface SubRoadmapStatus {
+  path: string;
+  name: string;
+  planned: number;
+  in_progress: number;
+  done: number;
+}

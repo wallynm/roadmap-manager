@@ -57,6 +57,7 @@ export function useStartItem() {
     mutationFn: (id: string) => api.startItem(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap"] });
     },
   });
 }
@@ -67,6 +68,7 @@ export function useCompleteItem() {
     mutationFn: ({ id, note }: { id: string; note?: string }) => api.completeItem(id, note),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap"] });
     },
   });
 }
@@ -77,6 +79,7 @@ export function useCancelItem() {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => api.cancelItem(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap"] });
     },
   });
 }
@@ -87,6 +90,7 @@ export function useUpdateItem() {
     mutationFn: api.updateItem,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap"] });
     },
   });
 }
@@ -98,6 +102,7 @@ export function useMarkDuplicate() {
       api.markDuplicate(id, originalId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap"] });
     },
   });
 }
@@ -108,6 +113,7 @@ export function usePlanItem() {
     mutationFn: (id: string) => api.planItem(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap"] });
     },
   });
 }
@@ -117,8 +123,21 @@ export function useAddDependency() {
   return useMutation({
     mutationFn: ({ id, blockerId }: { id: string; blockerId: string }) =>
       api.addDependency(id, blockerId),
-    onSuccess: () => {
+    onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["item", id] });
+    },
+  });
+}
+
+export function useRemoveDependency() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, blockerId }: { id: string; blockerId: string }) =>
+      api.removeDependency(id, blockerId),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["item", id] });
     },
   });
 }

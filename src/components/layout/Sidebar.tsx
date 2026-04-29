@@ -1,7 +1,8 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Bell, ChevronDown, ChevronRight, Layers, Plus, Search } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, Layers, Plus, Search, Map, FileCheck } from "lucide-react";
 import { useRepos } from "@/hooks/useRepos";
 import { useItems } from "@/hooks/useItems";
+import { useCheckboxCount, useSubRoadmaps } from "@/hooks/useValidation";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { openCommandPalette } from "@/components/command/CommandPalette";
@@ -34,7 +35,7 @@ export function Sidebar() {
 
       {/* New + Search */}
       <div className="px-3 space-y-1.5 pb-3 shrink-0">
-        {activeRepoId && !isItemView && (
+        {activeRepoId && (
           <button
             onClick={() => navigate(`/repos/${activeRepoId}/items/new`)}
             className="flex items-center gap-2 w-full px-2.5 py-1.5 bg-secondary/40 border border-border rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
@@ -95,6 +96,8 @@ function ActiveRepoNav({
 }) {
   const location = useLocation();
   const { data: items } = useItems(repoId, undefined);
+  const { data: checkboxes } = useCheckboxCount(repoId);
+  const { data: subRoadmaps } = useSubRoadmaps(repoId);
   const [expanded, setExpanded] = useState(true);
 
   const openItems = items?.filter(
@@ -112,12 +115,35 @@ function ActiveRepoNav({
     setExpanded(true);
   }, [repoId]);
 
+  const roadmapActive = location.pathname === `/repos/${repoId}/roadmap`;
+
   return (
     <div className="mt-1 space-y-0.5">
+      {/* Roadmap */}
+      <button
+        onClick={() => onNavigate(`/repos/${repoId}/roadmap`)}
+        className={cn(
+          "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-lg transition-colors",
+          roadmapActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent"
+        )}
+      >
+        <Map className="w-3.5 h-3.5 shrink-0" />
+        <span className="flex-1 text-left">Roadmap</span>
+        {checkboxes && checkboxes.pending > 0 && (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 shrink-0"
+            title={checkboxes.unchecked_items.slice(0, 5).map(c => `${c.heading}: ${c.text}`).join("\n")}
+          >
+            <FileCheck className="w-2.5 h-2.5 inline mr-0.5" />
+            {checkboxes.pending}
+          </span>
+        )}
+      </button>
+
       {/* All items row */}
       <div
         className={cn(
-          "flex items-center justify-between w-full px-2 py-1.5 text-sm rounded transition-colors",
+          "flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-lg transition-colors",
           allActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
       >
@@ -155,7 +181,7 @@ function ActiveRepoNav({
                   onNavigate(`/repos/${repoId}?scope=${encodeURIComponent(scope)}`)
                 }
                 className={cn(
-                  "flex items-center justify-between w-full px-2 py-1 text-xs rounded transition-colors",
+                  "flex items-center justify-between w-full px-2 py-1 text-xs rounded-lg transition-colors",
                   isActive
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -171,6 +197,28 @@ function ActiveRepoNav({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Sub-roadmaps (F8) */}
+      {subRoadmaps && subRoadmaps.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50 px-2">
+            Sub-roadmaps ({subRoadmaps.length})
+          </p>
+          {subRoadmaps.map((sr) => (
+            <div
+              key={sr.path}
+              className="flex items-center justify-between px-2 py-1 text-xs text-muted-foreground"
+            >
+              <span className="truncate">{sr.name}</span>
+              <div className="flex items-center gap-1 shrink-0 text-[10px]">
+                {sr.planned > 0 && <span title="Planned">📋{sr.planned}</span>}
+                {sr.in_progress > 0 && <span title="In progress">🔄{sr.in_progress}</span>}
+                {sr.done > 0 && <span title="Done">✅{sr.done}</span>}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
