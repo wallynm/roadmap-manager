@@ -103,7 +103,16 @@ pub fn fix_issues(
             if let Some(mapping) = yaml.as_mapping_mut() {
                 let key = serde_yaml::Value::String(field.clone());
                 if mapping.contains_key(&key) {
-                    continue;
+                    // For sequence fields: allow overwriting an existing empty sequence
+                    // so body-extracted values (e.g. depends-on) can be backfilled.
+                    let is_empty_seq = mapping
+                        .get(&key)
+                        .and_then(|v| v.as_sequence())
+                        .map(|s| s.is_empty())
+                        .unwrap_or(false);
+                    if !is_empty_seq {
+                        continue;
+                    }
                 }
 
                 let default_val = derive_default(field, &template.defaults, repo_path, &tf.abs_path, &parsed.body);
@@ -444,5 +453,25 @@ mod tests {
     fn no_deps_returns_empty() {
         let body = "Nenhuma dependência mencionada aqui.";
         assert!(extract_deps_from_body(body).is_empty());
+    }
+
+    #[test]
+    fn overwrite_empty_sequence() {
+        // When depends-on is already [] but body has IDs, derive_default should return them.
+        let body = "**Depende de:** ETM-01";
+        let result = derive_default(
+            "depends-on",
+            &serde_json::json!({}),
+            std::path::Path::new("."),
+            std::path::Path::new("./file.md"),
+            body,
+        );
+        match result {
+            Some(serde_yaml::Value::Sequence(seq)) => {
+                assert_eq!(seq.len(), 1);
+                assert_eq!(seq[0].as_str(), Some("ETM-01"));
+            }
+            other => panic!("expected Sequence, got {:?}", other),
+        }
     }
 }
