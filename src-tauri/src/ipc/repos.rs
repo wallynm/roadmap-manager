@@ -1,9 +1,17 @@
+use serde::Serialize;
 use sqlx::SqlitePool;
 use tauri::{AppHandle, State};
 
 use crate::db::repos;
 use crate::scanner::{self, ScanReport};
 use crate::watcher::WatcherPool;
+
+#[derive(Serialize)]
+pub struct RoadmapResult {
+    pub content: String,
+    pub exists: bool,
+    pub path: String,
+}
 
 #[tauri::command]
 pub async fn list_repos(pool: State<'_, SqlitePool>) -> Result<Vec<repos::Repo>, String> {
@@ -83,4 +91,101 @@ pub async fn update_repo(
     repos::update_repo(&pool, &id, &name, &config)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_roadmap(pool: State<'_, SqlitePool>, repo_id: String) -> Result<RoadmapResult, String> {
+    let repo = repos::get(&pool, &repo_id).await.map_err(|e| e.to_string())?;
+    let roadmap_path = std::path::Path::new(&repo.path).join("ROADMAP.md");
+    let path_str = roadmap_path.to_string_lossy().to_string();
+
+    if roadmap_path.exists() {
+        let content = std::fs::read_to_string(&roadmap_path).map_err(|e| e.to_string())?;
+        Ok(RoadmapResult { content, exists: true, path: path_str })
+    } else {
+        Ok(RoadmapResult { content: String::new(), exists: false, path: path_str })
+    }
+}
+
+#[tauri::command]
+pub async fn regenerate_roadmap(pool: State<'_, SqlitePool>, repo_id: String) -> Result<RoadmapResult, String> {
+    crate::roadmap::regenerate(&pool, &repo_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let repo = repos::get(&pool, &repo_id).await.map_err(|e| e.to_string())?;
+    let roadmap_path = std::path::Path::new(&repo.path).join("ROADMAP.md");
+    let path_str = roadmap_path.to_string_lossy().to_string();
+    let content = std::fs::read_to_string(&roadmap_path).map_err(|e| e.to_string())?;
+
+    Ok(RoadmapResult { content, exists: true, path: path_str })
+}
+
+#[tauri::command]
+pub async fn regenerate_indexes(
+    pool: State<'_, SqlitePool>,
+    repo_id: String,
+) -> Result<u32, String> {
+    crate::roadmap::regenerate_indexes(&pool, &repo_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_checkbox_count(
+    pool: State<'_, SqlitePool>,
+    repo_id: String,
+) -> Result<crate::parser::checkboxes::CheckboxCount, String> {
+    let repo = repos::get(&pool, &repo_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let roadmap_path = std::path::Path::new(&repo.path).join("ROADMAP.md");
+
+    if !roadmap_path.exists() {
+        return Ok(crate::parser::checkboxes::CheckboxCount {
+            pending: 0,
+            completed: 0,
+            unchecked_items: Vec::new(),
+        });
+    }
+
+    let content = std::fs::read_to_string(&roadmap_path).map_err(|e| e.to_string())?;
+    Ok(crate::parser::checkboxes::count_checkboxes(&content))
+}
+
+#[tauri::command]
+pub async fn get_sub_roadmaps(
+    pool: State<'_, SqlitePool>,
+    repo_id: String,
+) -> Result<Vec<crate::parser::checkboxes::SubRoadmapStatus>, String> {
+    let repo = repos::get(&pool, &repo_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let config: crate::scanner::RepoConfig =
+        serde_json::from_str(&repo.config).map_err(|e| e.to_string())?;
+
+    let globs: Vec<String> = config
+        .templates
+        .values()
+        .filter_map(|t| {
+            t.defaults
+                .get("subRoadmapGlobs")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect::<Vec<_>>()
+                })
+        })
+        .flatten()
+        .collect();
+
+    if globs.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let repo_path = std::path::Path::new(&repo.path);
+    Ok(crate::parser::checkboxes::classify_sub_roadmaps(
+        repo_path, &globs,
+    ))
 }

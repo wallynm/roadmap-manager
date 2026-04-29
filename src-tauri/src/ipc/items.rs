@@ -198,6 +198,8 @@ pub async fn start_item(pool: State<'_, SqlitePool>, id: String) -> Result<items
     vcs::auto_commit(&repo, &abs_path, &updated, "started", None)
         .map_err(|e| format!("auto-commit failed: {}", e))?;
 
+    let _ = crate::roadmap::regenerate(pool.inner(), &updated.repo_id).await;
+
     Ok(updated)
 }
 
@@ -246,6 +248,8 @@ pub async fn complete_item(
 
     vcs::auto_commit(&repo, &abs_path, &updated, "resolvido", note.as_deref())
         .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    let _ = crate::roadmap::regenerate(pool.inner(), &updated.repo_id).await;
 
     Ok(updated)
 }
@@ -298,6 +302,8 @@ pub async fn cancel_item(
 
     vcs::auto_commit(&repo, &abs_path, &updated, "cancelado", reason.as_deref())
         .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    let _ = crate::roadmap::regenerate(pool.inner(), &updated.repo_id).await;
 
     Ok(updated)
 }
@@ -359,6 +365,8 @@ pub async fn mark_duplicate(
     )
     .map_err(|e| format!("auto-commit failed: {}", e))?;
 
+    let _ = crate::roadmap::regenerate(pool.inner(), &updated.repo_id).await;
+
     Ok(updated)
 }
 
@@ -406,6 +414,8 @@ pub async fn plan_item(pool: State<'_, SqlitePool>, id: String) -> Result<items:
 
     vcs::auto_commit(&repo, &abs_path, &updated, "replanned", None)
         .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    let _ = crate::roadmap::regenerate(pool.inner(), &updated.repo_id).await;
 
     Ok(updated)
 }
@@ -477,6 +487,8 @@ pub async fn update_item(
     let verb = normalize_status(&updated.status).status_verb();
     vcs::auto_commit(&repo, &abs_path, &updated, verb, None)
         .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    let _ = crate::roadmap::regenerate(pool.inner(), &updated.repo_id).await;
 
     Ok(updated)
 }

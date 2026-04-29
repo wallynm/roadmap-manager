@@ -1,11 +1,14 @@
 pub mod agent;
+pub mod archive;
 pub mod db;
 pub mod error;
 pub mod ipc;
 pub mod parser;
+pub mod roadmap;
 pub mod scanner;
 pub mod sounds;
 pub mod sync;
+pub mod validator;
 pub mod vcs;
 pub mod watcher;
 pub mod writer;
@@ -54,6 +57,8 @@ pub fn run() {
             ipc::repos::rescan_repo,
             ipc::repos::get_repo,
             ipc::repos::update_repo,
+            ipc::repos::get_roadmap,
+            ipc::repos::regenerate_roadmap,
             ipc::items::list_items,
             ipc::items::get_item,
             ipc::items::create_item,
@@ -76,6 +81,16 @@ pub fn run() {
             ipc::agent::agent_get_run,
             ipc::agent::agent_cancel,
             ipc::agent::agent_list_runs,
+            ipc::validate::validate_repo,
+            ipc::validate::fix_repo,
+            ipc::validate::deps_check,
+            ipc::validate::impact_ranking,
+            ipc::validate::stale_items,
+            ipc::archive::archive_dry_run,
+            ipc::archive::archive_execute,
+            ipc::repos::regenerate_indexes,
+            ipc::repos::get_checkbox_count,
+            ipc::repos::get_sub_roadmaps,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
