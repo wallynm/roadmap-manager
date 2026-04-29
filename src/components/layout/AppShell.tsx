@@ -33,7 +33,7 @@ export function AppShell({ children }: AppShellProps) {
         <Sidebar />
         <main className="flex-1 overflow-hidden p-2 pl-0">
           <div className="h-full rounded-xl border border-border bg-background overflow-hidden">
-            <div className="h-full overflow-auto p-6">
+            <div className="h-full overflow-auto px-6 pb-6 pt-3">
               {children}
             </div>
           </div>
