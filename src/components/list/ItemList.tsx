@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ChevronRight, GripVertical, Lock } from "lucide-react";
+import { ChevronRight, GripVertical, Lock, Link2 } from "lucide-react";
 import type { Item, ItemStatus, Priority } from "@/types";
-import { cn, STATUS_CONFIG, PRIORITY_CONFIG, formatDateShort } from "@/lib/utils";
+import { cn, STATUS_CONFIG, PRIORITY_CONFIG, formatDateShort, parseRelatesTo } from "@/lib/utils";
 
 export type SortField = "default" | "priority" | "created_date" | "impact";
 export type SortDir = "asc" | "desc";
@@ -51,6 +51,49 @@ function sortItems(items: Item[], field: SortField, dir: SortDir, impactMap?: Re
   });
 }
 
+// Build undirected connected components from relates_to within the given item set.
+function buildClusters(items: Item[]): Array<Item[]> {
+  const extToItem = new Map(items.map((i) => [i.external_id, i]));
+  const adj = new Map<string, Set<string>>();
+
+  for (const item of items) {
+    if (!adj.has(item.external_id)) {
+      adj.set(item.external_id, new Set());
+    }
+    for (const rel of parseRelatesTo(item.relates_to)) {
+      if (!extToItem.has(rel)) { continue; }
+      adj.get(item.external_id)!.add(rel);
+      if (!adj.has(rel)) { adj.set(rel, new Set()); }
+      adj.get(rel)!.add(item.external_id);
+    }
+  }
+
+  const visited = new Set<string>();
+  const clusters: Array<Item[]> = [];
+
+  for (const item of items) {
+    if (visited.has(item.external_id)) { continue; }
+    visited.add(item.external_id);
+    const cluster: Item[] = [item];
+    const queue = [...(adj.get(item.external_id) ?? [])];
+    while (queue.length > 0) {
+      const extId = queue.shift()!;
+      if (visited.has(extId)) { continue; }
+      visited.add(extId);
+      const related = extToItem.get(extId);
+      if (related) {
+        cluster.push(related);
+        for (const next of adj.get(extId) ?? []) {
+          if (!visited.has(next)) { queue.push(next); }
+        }
+      }
+    }
+    clusters.push(cluster);
+  }
+
+  return clusters;
+}
+
 export function ItemList({
   items,
   onItemClick,
@@ -98,6 +141,7 @@ function StatusGroup({
   const [collapsed, setCollapsed] = useState(false);
   const cfg = STATUS_CONFIG[status];
   const Icon = cfg.icon;
+  const clusters = buildClusters(items);
 
   return (
     <div className="mb-0.5">
@@ -120,9 +164,30 @@ function StatusGroup({
 
       {!collapsed && (
         <div className="mb-2">
-          {items.map((item) => (
-            <ItemRow key={item.id} item={item} onClick={() => onItemClick(item)} unblocks={impactMap[item.id]} />
-          ))}
+          {clusters.map((cluster, idx) =>
+            cluster.length === 1 ? (
+              <ItemRow
+                key={cluster[0].id}
+                item={cluster[0]}
+                onClick={() => onItemClick(cluster[0])}
+                unblocks={impactMap[cluster[0].id]}
+              />
+            ) : (
+              <div
+                key={idx}
+                className="border-l-2 border-primary/25 ml-3 pl-1 my-0.5 rounded-sm"
+              >
+                {cluster.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    onClick={() => onItemClick(item)}
+                    unblocks={impactMap[item.id]}
+                  />
+                ))}
+              </div>
+            )
+          )}
         </div>
       )}
     </div>
@@ -135,6 +200,7 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
   const priorityCfg = PRIORITY_CONFIG[(item.priority as Priority) ?? "Nenhuma"];
   const labels: string[] = (() => { try { return JSON.parse(item.labels); } catch { return []; } })();
   const deps: string[] = (() => { try { return JSON.parse(item.depends_on); } catch { return []; } })();
+  const rels = parseRelatesTo(item.relates_to);
 
   return (
     <div
@@ -152,6 +218,7 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
 
       <Icon className={cn("w-3.5 h-3.5 shrink-0", cfg.color)} />
       <span className="text-sm text-foreground flex-1 truncate min-w-0">{item.title}</span>
+
       {labels.length > 0 && (
         <div className="flex items-center gap-1 shrink-0">
           {labels.slice(0, 2).map((l: string) => (
@@ -164,17 +231,28 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
           )}
         </div>
       )}
+
       {deps.length > 0 && (
-        <span className="text-[10px] text-amber-400 shrink-0">
-          <Lock className="w-2.5 h-2.5 inline mr-0.5" />{deps.length}
+        <span className="flex items-center gap-0.5 text-[10px] text-amber-400 shrink-0">
+          <Lock className="w-2.5 h-2.5" />
+          {deps.length}
         </span>
       )}
+
+      {rels.length > 0 && (
+        <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/50 shrink-0">
+          <Link2 className="w-2.5 h-2.5" />
+          {rels.length}
+        </span>
+      )}
+
       {unblocks != null && unblocks > 0 && (
         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary shrink-0 font-medium">
           unblocks {unblocks}
         </span>
       )}
-<span className="text-[11px] text-muted-foreground/60 w-14 text-right shrink-0">
+
+      <span className="text-[11px] text-muted-foreground/60 w-14 text-right shrink-0">
         {formatDateShort(item.created_date)}
       </span>
     </div>
