@@ -174,7 +174,7 @@ export function KanbanBoard({ items, onItemClick }: KanbanBoardProps) {
         ))}
       </div>
 
-      <DragOverlay dropAnimation={{ duration: 150, easing: "ease" }}>
+      <DragOverlay dropAnimation={null}>
         {activeItem && <ItemCard item={activeItem} onClick={() => {}} isOverlay />}
       </DragOverlay>
     </DndContext>
