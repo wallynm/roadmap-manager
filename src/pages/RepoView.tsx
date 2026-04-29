@@ -9,14 +9,12 @@ import { DepGraph } from "@/components/graph/DepGraph";
 import type { Item, ItemFilters, Priority } from "@/types";
 import { PRIORITY_CONFIG } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { ValidationPanel } from "@/components/validation/ValidationPanel";
-import { LayoutGrid, List, GitBranch, ShieldCheck, ArrowUpDown, SlidersHorizontal, X } from "lucide-react";
+import { LayoutGrid, List, GitBranch, ArrowUpDown, SlidersHorizontal, X } from "lucide-react";
 
 const VIEWS = [
   { id: "kanban", label: "Kanban", icon: LayoutGrid },
   { id: "list", label: "List", icon: List },
   { id: "graph", label: "Graph", icon: GitBranch },
-  { id: "validation", label: "Validate", icon: ShieldCheck },
 ] as const;
 
 const TABS = [
@@ -94,12 +92,12 @@ export function RepoView() {
   const hasFilters = Object.keys(dbFilters).length > 0;
   const { data: items, isLoading } = useItems(repoId || null, hasFilters ? dbFilters : undefined);
 
-  const impactMutation = useImpactRanking(repoId || "");
+  const { data: impactData, refetch: refetchImpact } = useImpactRanking(repoId || "");
   const isImpactSort = SORT_OPTIONS[sortIdx]?.field === "impact";
 
   const impactMap: Record<string, number> = {};
-  if (impactMutation.data) {
-    for (const r of impactMutation.data) {
+  if (impactData) {
+    for (const r of impactData) {
       impactMap[r.id] = r.unblocks;
     }
   }
@@ -107,10 +105,10 @@ export function RepoView() {
   const prevImpactSortRef = useRef(isImpactSort);
   useEffect(() => {
     if (isImpactSort && !prevImpactSortRef.current) {
-      impactMutation.mutate();
+      refetchImpact();
     }
     prevImpactSortRef.current = isImpactSort;
-  }, [isImpactSort]);
+  }, [isImpactSort, refetchImpact]);
 
   const filteredItems = items?.filter((item) => {
     if (tab === "all") {
@@ -319,9 +317,6 @@ export function RepoView() {
         )}
         {currentView === "graph" && (
           <DepGraph items={filteredItems} onItemClick={handleItemClick} />
-        )}
-        {currentView === "validation" && (
-          <ValidationPanel repoId={repoId!} />
         )}
       </div>
     </div>

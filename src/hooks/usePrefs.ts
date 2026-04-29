@@ -3,7 +3,7 @@ import type { Priority } from "@/types";
 
 const STORAGE_KEY = "roadmap-prefs-v1";
 
-export type ViewId = "kanban" | "list" | "graph" | "validation";
+export type ViewId = "kanban" | "list" | "graph";
 
 interface RepoPrefs {
   view: ViewId;

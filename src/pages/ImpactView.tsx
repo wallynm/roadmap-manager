@@ -1,10 +1,11 @@
 import { TrendingUp, RefreshCw } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useImpactRanking, useImpactRankingCache } from "@/hooks/useValidation";
 import { cn } from "@/lib/utils";
 
 export function ImpactView() {
   const { repoId } = useParams<{ repoId: string }>();
+  const navigate = useNavigate();
 
   const { data: cached } = useImpactRankingCache(repoId!);
   const { data: fresh, isFetching, refetch, dataUpdatedAt } = useImpactRanking(repoId!);
@@ -66,10 +67,12 @@ export function ImpactView() {
       {!isInitialLoad && ranking && ranking.length > 0 && (
         <div className={cn("border border-border rounded-lg overflow-hidden", isFetching && "opacity-60")}>
           {ranking.map((item, i) => (
-            <div
+            <button
               key={item.id}
+              type="button"
+              onClick={() => navigate(`/repos/${repoId}/items/${item.id}`)}
               className={cn(
-                "flex items-center gap-4 px-4 py-3 text-sm",
+                "flex items-center gap-4 px-4 py-3 text-sm w-full text-left transition-colors hover:bg-accent/40",
                 i !== 0 && "border-t border-border"
               )}
             >
@@ -82,7 +85,7 @@ export function ImpactView() {
                   unblocks {item.unblocks}
                 </span>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}

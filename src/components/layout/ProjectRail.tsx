@@ -1,11 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useRepos } from "@/hooks/useRepos";
-import { Plus, Settings } from "lucide-react";
+import { Plus, Settings, ShieldCheck, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { AddRepoDialog } from "@/components/modals/AddRepoDialog";
 import { parseRepoDisplay } from "@/lib/tauri";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { openInbox } from "@/components/inbox/InboxModal";
 
 const REPO_RE = /\/repos\/([^/]+)/;
 
@@ -45,6 +46,7 @@ export function ProjectRail() {
 
   const activeRepoId = REPO_RE.exec(location.pathname)?.[1];
   const isSettings = location.pathname === "/settings";
+  const isValidate = activeRepoId && location.pathname === `/repos/${activeRepoId}/validate`;
 
   return (
     <div className="w-[60px] h-full flex flex-col items-center py-3 shrink-0 border-r border-dashed border-border/70" style={{ backgroundColor: "hsl(240, 24%, 7%)" }}>
@@ -95,6 +97,43 @@ export function ProjectRail() {
           </Tooltip>
         </div>
       </div>
+
+      {/* Notifications */}
+      <div className="relative flex items-center justify-center w-full py-0.5">
+        <Tooltip content="Notifications">
+          <button
+            onClick={openInbox}
+            className="w-9 h-9 rounded-full hover:rounded-[12px] flex items-center justify-center transition-all duration-200 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Bell className="w-4 h-4" />
+          </button>
+        </Tooltip>
+      </div>
+
+      {/* Validate */}
+      {activeRepoId && (
+        <div className="relative flex items-center justify-center w-full py-0.5">
+          <span
+            className={cn(
+              "absolute left-0 w-[3px] rounded-r-full bg-foreground transition-all duration-200",
+              isValidate ? "h-9" : "h-0"
+            )}
+          />
+          <Tooltip content="Validate">
+            <button
+              onClick={() => navigate(`/repos/${activeRepoId}/validate`)}
+              className={cn(
+                "w-9 h-9 flex items-center justify-center transition-all duration-200",
+                isValidate
+                  ? "rounded-[12px] bg-accent text-foreground"
+                  : "rounded-full hover:rounded-[12px] text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              <ShieldCheck className="w-4 h-4" />
+            </button>
+          </Tooltip>
+        </div>
+      )}
 
       {/* Settings */}
       <div className="relative flex items-center justify-center w-full py-0.5">

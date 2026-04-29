@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Bell, ChevronDown, ChevronRight, Layers, LayoutList,
+  ChevronDown, ChevronRight, Layers, LayoutList,
   Plus, Search, Map, FileCheck, TrendingUp,
 } from "lucide-react";
 import { useRepos } from "@/hooks/useRepos";
@@ -9,7 +9,6 @@ import { useCheckboxCount, useSubRoadmaps } from "@/hooks/useValidation";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, type ReactNode } from "react";
 import { openCommandPalette } from "@/components/command/CommandPalette";
-import { openInbox } from "@/components/inbox/InboxModal";
 
 const REPO_PATH_RE = /\/repos\/([^/]+)/;
 const ITEM_PATH_RE = /\/items\/([^/]+)/;
@@ -94,17 +93,6 @@ export function Sidebar() {
           </kbd>
         </button>
 
-        <button
-          type="button"
-          onClick={openInbox}
-          className="flex items-center gap-2 w-full px-2.5 py-1.5 bg-secondary/40 border border-border rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-        >
-          <Bell className="w-3 h-3 shrink-0" />
-          <span className="flex-1 text-left">Inbox</span>
-          <kbd className="text-[10px] text-muted-foreground/50 border border-border/40 px-1 py-0.5 rounded leading-none">
-            ⌘I
-          </kbd>
-        </button>
       </div>
 
       {/* Nav */}
