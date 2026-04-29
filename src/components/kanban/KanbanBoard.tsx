@@ -126,7 +126,15 @@ export function KanbanBoard({ items, onItemClick }: KanbanBoardProps) {
 
     const newCol = findColOf(cols, active.id);
     const originalItem = items.find((i) => i.id === prevActiveId);
-    if (!newCol || !originalItem || originalItem.status === newCol) { return; }
+    if (!newCol || !originalItem) { return; }
+
+    if (originalItem.status === newCol) {
+      // Same-column reorder: no mutation needed, but block the useEffect from
+      // rebuilding cols from stale items for one tick so the reorder sticks.
+      pendingMove.current = true;
+      setTimeout(() => { pendingMove.current = false; }, 0);
+      return;
+    }
 
     pendingMove.current = true;
     updateItem.mutate(
