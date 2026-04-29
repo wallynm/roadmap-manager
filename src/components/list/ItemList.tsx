@@ -225,7 +225,7 @@ function StatusGroup({
             ) : (
               <div
                 key={idx}
-                className="my-1 rounded-lg border border-border overflow-hidden"
+                className="my-1 rounded-lg border border-border overflow-hidden bg-muted/40"
               >
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-secondary border-b border-border/60">
                   <Link2 className="w-2.5 h-2.5 text-muted-foreground/60" />
