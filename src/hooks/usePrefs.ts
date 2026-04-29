@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import type { Priority, ItemStatus } from "@/types";
 
 const STORAGE_KEY = "roadmap-prefs-v1";
@@ -12,6 +12,11 @@ export interface ActiveFilters {
   labels: string[];
 }
 
+export interface LabelWeight {
+  label: string;
+  multiplier: number;
+}
+
 interface RepoPrefs {
   view: ViewId;
   sortIdx: number;
@@ -19,6 +24,7 @@ interface RepoPrefs {
   filterPriorities: Priority[];
   activeFilters: ActiveFilters;
   tab: string;
+  labelWeights?: LabelWeight[];
 }
 
 interface Prefs {
@@ -83,4 +89,54 @@ export function saveLastRepo(repoId: string): void {
   const current = load();
   current.lastRepoId = repoId;
   persist(current);
+}
+
+export function useLabelWeights(repoId: string) {
+  const [weights, setWeightsState] = useState<LabelWeight[]>(() => {
+    return getRepoPrefs(repoId).labelWeights ?? [];
+  });
+
+  useEffect(() => {
+    setWeightsState(getRepoPrefs(repoId).labelWeights ?? []);
+  }, [repoId]);
+
+  const persist_ = useCallback((next: LabelWeight[]) => {
+    const current = load();
+    current.repos[repoId] = {
+      ...REPO_DEFAULTS,
+      ...(current.repos[repoId] ?? {}),
+      labelWeights: next,
+    };
+    persist(current);
+    setWeightsState(next);
+  }, [repoId]);
+
+  const setMultiplier = useCallback((label: string, multiplier: number) => {
+    const current = load();
+    const existing = (current.repos[repoId]?.labelWeights ?? []);
+    const idx = existing.findIndex((w) => w.label === label);
+    let next: LabelWeight[];
+    if (idx >= 0) {
+      next = existing.map((w) => w.label === label ? { label, multiplier } : w);
+    } else {
+      next = [...existing, { label, multiplier }];
+    }
+    persist_(next);
+  }, [repoId, persist_]);
+
+  const reorder = useCallback((from: number, to: number) => {
+    const current = load();
+    const existing = [...(current.repos[repoId]?.labelWeights ?? [])];
+    const [moved] = existing.splice(from, 1);
+    existing.splice(to, 0, moved);
+    persist_(existing);
+  }, [repoId, persist_]);
+
+  const remove = useCallback((label: string) => {
+    const current = load();
+    const next = (current.repos[repoId]?.labelWeights ?? []).filter((w) => w.label !== label);
+    persist_(next);
+  }, [repoId, persist_]);
+
+  return { weights, setMultiplier, reorder, remove };
 }

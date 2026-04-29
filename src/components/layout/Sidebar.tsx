@@ -1,11 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   ChevronDown, ChevronRight, Layers, LayoutList,
-  Plus, Search, Map, FileCheck, TrendingUp,
+  Plus, Search, Map, FileCheck, TrendingUp, Zap,
 } from "lucide-react";
 import { useRepos } from "@/hooks/useRepos";
 import { useItems } from "@/hooks/useItems";
 import { useCheckboxCount, useSubRoadmaps } from "@/hooks/useValidation";
+import { useNextItems } from "@/hooks/useNextItems";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, type ReactNode } from "react";
 import { openCommandPalette } from "@/components/command/CommandPalette";
@@ -122,7 +123,10 @@ function ActiveRepoNav({
   const { data: items } = useItems(repoId, undefined);
   const { data: checkboxes } = useCheckboxCount(repoId);
   const { data: subRoadmaps } = useSubRoadmaps(repoId);
+  const nextItems = useNextItems(repoId);
   const [expanded, setExpanded] = useState(true);
+
+  const readyCount = nextItems.filter((s) => s.ready).length;
 
   const openItems = items?.filter(
     (i) => i.status !== "canceled" && i.status !== "duplicate" && i.status !== "done"
@@ -136,6 +140,7 @@ function ActiveRepoNav({
   const allActive = !activeScope && /^\/repos\/[^/]+$/.test(location.pathname);
   const roadmapActive = location.pathname === `/repos/${repoId}/roadmap`;
   const impactActive = location.pathname === `/repos/${repoId}/impact`;
+  const nextActive = location.pathname === `/repos/${repoId}/next`;
 
   useEffect(() => {
     setExpanded(true);
@@ -143,6 +148,20 @@ function ActiveRepoNav({
 
   return (
     <div className="mt-1 space-y-0.5">
+      <NavItem
+        icon={<Zap className="w-3.5 h-3.5" />}
+        label="Next Up"
+        active={nextActive}
+        onClick={() => onNavigate(`/repos/${repoId}/next`)}
+        end={
+          readyCount > 0 ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary shrink-0 tabular-nums">
+              {readyCount}
+            </span>
+          ) : undefined
+        }
+      />
+
       <NavItem
         icon={<TrendingUp className="w-3.5 h-3.5" />}
         label="Impact Ranking"

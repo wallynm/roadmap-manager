@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useId } from "react";
 import { useParams } from "react-router-dom";
 import { useRepos, useRemoveRepo, useRescanRepo, useUpdateRepo } from "@/hooks/useRepos";
+import { useItems } from "@/hooks/useItems";
+import { useLabelWeights } from "@/hooks/usePrefs";
 import { cn } from "@/lib/utils";
-import { Trash2, RefreshCw, Check } from "lucide-react";
+import { Trash2, RefreshCw, Check, ChevronUp, ChevronDown, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "sonner";
 import type { Repo } from "@/types";
@@ -47,6 +49,7 @@ export function SettingsView() {
     <div className="max-w-xl mx-auto space-y-2">
       <h1 className="text-sm font-semibold mb-5">Settings — {repo.name}</h1>
       <ProjectPanel repo={repo} />
+      <LabelWeightsPanel repoId={repo.id} />
     </div>
   );
 }
@@ -175,6 +178,143 @@ function ProjectPanel({ repo }: { repo: Repo }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function LabelWeightsPanel({ repoId }: { repoId: string }) {
+  const { data: items } = useItems(repoId, undefined);
+  const { weights, setMultiplier, reorder, remove } = useLabelWeights(repoId);
+  const [newLabel, setNewLabel] = useState("");
+  const inputId = useId();
+
+  const allLabels = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of items ?? []) {
+      try {
+        const labels = JSON.parse(item.labels) as string[];
+        labels.forEach((l) => set.add(l));
+      } catch {}
+    }
+    return [...set].sort();
+  }, [items]);
+
+  const configuredSet = new Set(weights.map((w) => w.label));
+  const unconfigured = allLabels.filter((l) => !configuredSet.has(l));
+
+  const handleAdd = (label: string) => {
+    const trimmed = label.trim();
+    if (!trimmed || configuredSet.has(trimmed)) {
+      return;
+    }
+    setMultiplier(trimmed, 1);
+    setNewLabel("");
+  };
+
+  return (
+    <section className="space-y-3 pt-6 border-t border-border">
+      <div>
+        <h2 className="text-sm font-medium">Next Up — Label weights</h2>
+        <p className="text-xs text-muted-foreground mt-1">
+          Labels multiply the item score in order (top = highest priority). Default for unconfigured labels is ×1.
+        </p>
+      </div>
+
+      {weights.length > 0 && (
+        <div className="rounded-lg border border-border divide-y divide-border">
+          {weights.map((w, i) => (
+            <div key={w.label} className="flex items-center gap-2 px-3 py-2">
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={i === 0}
+                  onClick={() => reorder(i, i - 1)}
+                  className="text-muted-foreground/50 hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
+                >
+                  <ChevronUp className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  disabled={i === weights.length - 1}
+                  onClick={() => reorder(i, i + 1)}
+                  className="text-muted-foreground/50 hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed"
+                >
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </div>
+              <span className="text-[10px] text-muted-foreground/40 tabular-nums w-4 shrink-0">
+                {i + 1}
+              </span>
+              <span className="flex-1 text-xs">{w.label}</span>
+              <span className="text-xs text-muted-foreground shrink-0">×</span>
+              <input
+                type="number"
+                min={0.1}
+                step={0.5}
+                value={w.multiplier}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v) && v > 0) {
+                    setMultiplier(w.label, v);
+                  }
+                }}
+                className="w-16 bg-secondary/50 border border-border rounded px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={() => remove(w.label)}
+                className="text-muted-foreground/40 hover:text-destructive ml-1 shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {weights.length === 0 && (
+        <p className="text-xs text-muted-foreground/50 italic">
+          No label weights configured. All labels score ×1 by default.
+        </p>
+      )}
+
+      <div className="flex items-center gap-2">
+        {unconfigured.length > 0 ? (
+          <select
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            id={inputId}
+            className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring text-muted-foreground"
+          >
+            <option value="">Pick a label to configure…</option>
+            {unconfigured.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id={inputId}
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleAdd(newLabel);
+              }
+            }}
+            placeholder="Type a label name…"
+            className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
+          />
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => handleAdd(newLabel)}
+          disabled={!newLabel.trim()}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add
+        </Button>
+      </div>
+    </section>
   );
 }
 
