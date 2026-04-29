@@ -47,10 +47,10 @@ export function ItemCard({ item, onClick, isGhost = false, isOverlay = false }: 
         ref={setNodeRef}
         style={{ ...style, minHeight: "76px" }}
         className={cn(
-          "rounded-lg border-2 border-dashed border-primary/40 bg-primary/5",
+          "rounded-lg border border-dashed border-border bg-secondary/20",
           "border-l-[3px]",
           borderClass,
-          "pointer-events-none"
+          "pointer-events-none opacity-60"
         )}
       />
     );
