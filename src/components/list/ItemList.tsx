@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { ChevronRight, GripVertical, Lock, Link2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { ChevronRight, GripVertical, Lock, Link2, Plus } from "lucide-react";
 import type { Item, ItemStatus, Priority } from "@/types";
 import { cn, STATUS_CONFIG, PRIORITY_CONFIG, formatDateShort, parseRelatesTo } from "@/lib/utils";
+import { useCreateItem, useUpdateItem } from "@/hooks/useItems";
+import { toast } from "sonner";
 
 export type SortField = "default" | "priority" | "created_date" | "impact";
 export type SortDir = "asc" | "desc";
@@ -9,6 +11,7 @@ export type SortDir = "asc" | "desc";
 interface ItemListProps {
   items: Item[];
   onItemClick: (item: Item) => void;
+  repoId?: string;
   sortField?: SortField;
   sortDir?: SortDir;
   filterPriorities?: Priority[];
@@ -97,6 +100,7 @@ function buildClusters(items: Item[]): Array<Item[]> {
 export function ItemList({
   items,
   onItemClick,
+  repoId,
   sortField = "default",
   sortDir = "asc",
   filterPriorities = [],
@@ -121,6 +125,7 @@ export function ItemList({
           items={groupItems}
           onItemClick={onItemClick}
           impactMap={impactMap}
+          repoId={repoId}
         />
       ))}
     </div>
@@ -132,16 +137,60 @@ function StatusGroup({
   items,
   onItemClick,
   impactMap = {},
+  repoId,
 }: {
   status: ItemStatus;
   items: Item[];
   onItemClick: (item: Item) => void;
   impactMap?: Record<string, number>;
+  repoId?: string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const createItem = useCreateItem();
+  const updateItem = useUpdateItem();
   const cfg = STATUS_CONFIG[status];
   const Icon = cfg.icon;
   const clusters = buildClusters(items);
+
+  function startCreating() {
+    setIsCreating(true);
+    setCollapsed(false);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function cancelCreating() {
+    setIsCreating(false);
+    setNewTitle("");
+  }
+
+  function handleCreate() {
+    const title = newTitle.trim();
+    cancelCreating();
+    if (!title || !repoId) { return; }
+
+    createItem.mutate(
+      { repoId, itemType: "improvement", title, body: `# ${title}\n\nTODO` },
+      {
+        onSuccess: (item) => {
+          if (status !== "todo") {
+            updateItem.mutate(
+              { id: item.id, status },
+              { onError: (err) => toast.error(`Status update failed: ${err}`) }
+            );
+          }
+        },
+        onError: (err) => toast.error(`Failed to create: ${err}`),
+      }
+    );
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") { e.preventDefault(); handleCreate(); }
+    if (e.key === "Escape") { cancelCreating(); }
+  }
 
   return (
     <div className="mb-0.5">
@@ -165,6 +214,7 @@ function StatusGroup({
       {!collapsed && (
         <div className="mb-2">
           {clusters.map((cluster, idx) =>
+
             cluster.length === 1 ? (
               <ItemRow
                 key={cluster[0].id}
@@ -195,6 +245,31 @@ function StatusGroup({
               </div>
             )
           )}
+
+          {/* Inline creation input */}
+          {isCreating ? (
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg ring-1 ring-primary/30 bg-primary/5 mx-0.5">
+              <Plus className="w-3 h-3 text-primary/50 shrink-0" />
+              <input
+                ref={inputRef}
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={cancelCreating}
+                placeholder="Issue title…"
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+              />
+              <span className="text-[10px] text-muted-foreground/40 shrink-0">↵ confirmar · esc cancelar</span>
+            </div>
+          ) : repoId ? (
+            <button
+              onClick={startCreating}
+              className="flex items-center gap-1.5 w-full px-2 py-1 text-xs text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors rounded-lg hover:bg-accent/20"
+            >
+              <Plus className="w-3 h-3" />
+              Add item
+            </button>
+          ) : null}
         </div>
       )}
     </div>

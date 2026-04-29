@@ -216,6 +216,7 @@ export function RepoView() {
           <ItemList
             items={filteredItems}
             onItemClick={handleItemClick}
+            repoId={repoId}
             sortField={currentSort.field as SortField}
             sortDir={currentSort.dir as SortDir}
             filterPriorities={activeFilters.priorities}
