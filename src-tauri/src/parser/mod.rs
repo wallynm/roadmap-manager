@@ -1,3 +1,4 @@
+pub mod checkboxes;
 pub mod status;
 
 use regex::Regex;
