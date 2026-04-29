@@ -12,7 +12,7 @@ import {
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Item, ItemStatus } from "@/types";
 import { KanbanColumn } from "./KanbanColumn";
 import { ItemCard } from "./ItemCard";
@@ -54,11 +54,14 @@ interface KanbanBoardProps {
 export function KanbanBoard({ items, onItemClick }: KanbanBoardProps) {
   const [cols, setCols] = useState<Cols>(() => buildCols(items));
   const [activeId, setActiveId] = useState<string | null>(null);
+  const pendingMove = useRef(false);
   const updateItem = useUpdateItem();
 
-  // Sync external item updates (status changes, new items) when not dragging
+  // Sync external item updates when not dragging and no mutation in flight.
+  // pendingMove prevents the stale-items flash right after drop, before the
+  // mutation resolves and React Query updates the items prop.
   useEffect(() => {
-    if (!activeId) { setCols(buildCols(items)); }
+    if (!activeId && !pendingMove.current) { setCols(buildCols(items)); }
   }, [items, activeId]);
 
   const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 8 } });
@@ -125,14 +128,17 @@ export function KanbanBoard({ items, onItemClick }: KanbanBoardProps) {
     const originalItem = items.find((i) => i.id === prevActiveId);
     if (!newCol || !originalItem || originalItem.status === newCol) { return; }
 
+    pendingMove.current = true;
     updateItem.mutate(
       { id: prevActiveId, status: newCol },
       {
         onError: (err) => {
+          pendingMove.current = false;
           toast.error(`Failed: ${err}`);
-          setCols(buildCols(items)); // revert
+          setCols(buildCols(items));
         },
         onSuccess: (updated) => {
+          pendingMove.current = false;
           toast.success(`${updated.external_id} → ${newCol}`);
         },
       }
