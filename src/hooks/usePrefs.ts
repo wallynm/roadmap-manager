@@ -1,14 +1,23 @@
 import { useCallback } from "react";
-import type { Priority } from "@/types";
+import type { Priority, ItemStatus } from "@/types";
 
 const STORAGE_KEY = "roadmap-prefs-v1";
 
 export type ViewId = "kanban" | "list" | "graph";
 
+export interface ActiveFilters {
+  statuses: ItemStatus[];
+  priorities: Priority[];
+  types: string[];
+  labels: string[];
+}
+
 interface RepoPrefs {
   view: ViewId;
   sortIdx: number;
+  /** @deprecated use activeFilters.priorities */
   filterPriorities: Priority[];
+  activeFilters: ActiveFilters;
   tab: string;
 }
 
@@ -17,10 +26,13 @@ interface Prefs {
   repos: Record<string, RepoPrefs>;
 }
 
+const EMPTY_FILTERS: ActiveFilters = { statuses: [], priorities: [], types: [], labels: [] };
+
 const REPO_DEFAULTS: RepoPrefs = {
   view: "kanban",
   sortIdx: 0,
   filterPriorities: [],
+  activeFilters: EMPTY_FILTERS,
   tab: "all",
 };
 
