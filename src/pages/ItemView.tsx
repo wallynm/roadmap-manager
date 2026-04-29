@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import type { Item, ItemStatus, Priority } from "@/types";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Save, ChevronDown, X, Lock, Plus, Link2, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ChevronRight, Save, ChevronDown, X, Lock, Plus, Link2, PanelRightClose, PanelRightOpen, Copy, Check } from "lucide-react";
 
 const SIDEBAR_PREF_KEY = "item-sidebar-open";
 function getSidebarPref(): boolean {
@@ -228,6 +228,15 @@ export function ItemView() {
 
   const toggleSidebar = () => setSidebarOpen((v) => { setSidebarPref(!v); return !v; });
 
+  const [copied, setCopied] = useState(false);
+  const copyPath = () => {
+    const fullPath = repo ? `${repo.path}/${item?.file_path}` : (item?.file_path ?? "");
+    navigator.clipboard.writeText(fullPath).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
   useEffect(() => {
     if (item) {
       const titleFromBody = extractFirstHeading(item.body ?? "");
@@ -334,6 +343,13 @@ export function ItemView() {
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-foreground truncate max-w-sm">{item.title}</span>
         </nav>
+        <button
+          onClick={copyPath}
+          className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          title={copied ? "Copied!" : "Copy file path"}
+        >
+          {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+        </button>
         <button
           onClick={toggleSidebar}
           className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
