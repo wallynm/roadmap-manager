@@ -427,9 +427,14 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
 
         let existing = items::get_by_path(pool, repo_id, &tf.rel_path).await?;
 
+        let depends_on_json = serde_json::to_string(&depends_on).unwrap_or_default();
+
         match existing {
             Some(existing_item) => {
-                if existing_item.file_hash != file_hash {
+                let hash_changed = existing_item.file_hash != file_hash;
+                // Also update when depends_on was empty in DB but body extraction now yields IDs.
+                let deps_enriched = existing_item.depends_on == "[]" && depends_on_json != "[]";
+                if hash_changed || deps_enriched {
                     let mut updated = existing_item.clone();
                     updated.title = title;
                     updated.body = parsed.body;
@@ -438,8 +443,7 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
                     updated.status = status.as_str().to_string();
                     updated.priority = priority;
                     updated.labels = serde_json::to_string(&labels).unwrap_or_default();
-                    updated.depends_on =
-                        serde_json::to_string(&depends_on).unwrap_or_default();
+                    updated.depends_on = depends_on_json;
                     updated.relates_to =
                         serde_json::to_string(&relates_to).unwrap_or_default();
                     updated.duplicate_of = duplicate_of;
@@ -467,7 +471,7 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
                     status: status.as_str().to_string(),
                     priority,
                     labels: serde_json::to_string(&labels).unwrap_or_default(),
-                    depends_on: serde_json::to_string(&depends_on).unwrap_or_default(),
+                    depends_on: depends_on_json,
                     relates_to: serde_json::to_string(&relates_to).unwrap_or_default(),
                     duplicate_of,
                     created_date,
