@@ -49,9 +49,10 @@ function findColOf(cols: Cols, id: UniqueIdentifier): ItemStatus | null {
 interface KanbanBoardProps {
   items: Item[];
   onItemClick: (item: Item) => void;
+  repoId?: string;
 }
 
-export function KanbanBoard({ items, onItemClick }: KanbanBoardProps) {
+export function KanbanBoard({ items, onItemClick, repoId }: KanbanBoardProps) {
   const [cols, setCols] = useState<Cols>(() => buildCols(items));
   const [activeId, setActiveId] = useState<string | null>(null);
   const pendingMove = useRef(false);
@@ -178,6 +179,7 @@ export function KanbanBoard({ items, onItemClick }: KanbanBoardProps) {
             items={cols[col.id]}
             activeId={activeId}
             onItemClick={onItemClick}
+            repoId={repoId}
           />
         ))}
       </div>

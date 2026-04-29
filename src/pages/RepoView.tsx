@@ -210,7 +210,7 @@ export function RepoView() {
 
       <div className="flex-1 min-h-0">
         {currentView === "kanban" && (
-          <KanbanBoard items={filteredItems} onItemClick={handleItemClick} />
+          <KanbanBoard items={filteredItems} onItemClick={handleItemClick} repoId={repoId} />
         )}
         {currentView === "list" && (
           <ItemList
