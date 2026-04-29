@@ -106,7 +106,7 @@ pub fn fix_issues(
                     continue;
                 }
 
-                let default_val = derive_default(field, &template.defaults, repo_path, &tf.abs_path);
+                let default_val = derive_default(field, &template.defaults, repo_path, &tf.abs_path, &parsed.body);
                 if let Some(val) = default_val {
                     mapping.insert(key, val);
                     changed = true;
@@ -139,6 +139,7 @@ fn derive_default(
     defaults: &serde_json::Value,
     repo_path: &Path,
     file_path: &Path,
+    body: &str,
 ) -> Option<serde_yaml::Value> {
     if let Some(val) = defaults.get(field) {
         return json_to_yaml(val);
@@ -152,11 +153,53 @@ fn derive_default(
         }
         "completed-date" => None,
         "started-date" => None,
-        "depends-on" => Some(serde_yaml::Value::Sequence(vec![])),
+        "depends-on" => {
+            let ids = extract_deps_from_body(body);
+            let seq = ids
+                .into_iter()
+                .map(serde_yaml::Value::String)
+                .collect();
+            Some(serde_yaml::Value::Sequence(seq))
+        }
         "labels" => Some(serde_yaml::Value::Sequence(vec![])),
         "duplicate-of" => None,
         _ => None,
     }
+}
+
+/// Scans markdown body for dependency references in patterns like:
+///   **Depende de:** RW-05 (description)
+///   **Depends on:** ETM-01, FW-FEAT-02
+///   Depende de: VS-IMP-10
+/// Returns deduplicated list of IDs in order of appearance.
+fn extract_deps_from_body(body: &str) -> Vec<String> {
+    use std::sync::LazyLock;
+    use regex::Regex;
+
+    // Matches a line that starts a "depends on" declaration (PT or EN, bold or plain)
+    static HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)\*{0,2}(?:depende\s+de|depends[\s-]on)\*{0,2}\s*:(.*)").unwrap()
+    });
+    // Matches individual roadmap IDs like RW-05, ETM-01, VS-IMP-10, FW-FEAT-01
+    static ID_RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)\b").unwrap()
+    });
+
+    let mut ids: Vec<String> = Vec::new();
+
+    for line in body.lines() {
+        if let Some(caps) = HEADER_RE.captures(line) {
+            let rest = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            for id_cap in ID_RE.captures_iter(rest) {
+                let id = id_cap.get(1).unwrap().as_str().to_string();
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+        }
+    }
+
+    ids
 }
 
 fn git_first_commit_date(repo_path: &Path, file_path: &Path) -> Option<String> {
@@ -373,4 +416,33 @@ fn derive_id_from_filename(file_path: &str, id_prefix: &str) -> String {
 
     // Fallback: template id_prefix + "00".
     format!("{}-00", id_prefix)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_pt_bold() {
+        let body = "**Depende de:** RW-05 (foundation, shipped ✅)";
+        assert_eq!(extract_deps_from_body(body), vec!["RW-05"]);
+    }
+
+    #[test]
+    fn extract_en_multiple() {
+        let body = "**Depends on:** ETM-01, FW-FEAT-02 (description)";
+        assert_eq!(extract_deps_from_body(body), vec!["ETM-01", "FW-FEAT-02"]);
+    }
+
+    #[test]
+    fn extract_plain_text() {
+        let body = "Depende de: VS-IMP-10";
+        assert_eq!(extract_deps_from_body(body), vec!["VS-IMP-10"]);
+    }
+
+    #[test]
+    fn no_deps_returns_empty() {
+        let body = "Nenhuma dependência mencionada aqui.";
+        assert!(extract_deps_from_body(body).is_empty());
+    }
 }

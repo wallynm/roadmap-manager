@@ -6,12 +6,16 @@ pub fn slugify(s: &str) -> String {
     let ascii: String = normalized
         .chars()
         .filter_map(|c| {
-            if c.is_ascii_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+            if c.is_ascii_alphanumeric() {
                 Some(c.to_ascii_lowercase())
-            } else if c.is_alphanumeric() {
-                None
+            } else if c == ' ' || c == '-' || c == '_' {
+                Some(' ')
+            } else if c.is_ascii() {
+                // other ASCII punctuation → word separator
+                Some(' ')
             } else {
-                Some('-')
+                // non-ASCII (combining marks, accented chars without decomposition) → strip
+                None
             }
         })
         .collect();

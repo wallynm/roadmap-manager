@@ -91,6 +91,7 @@ mod tests {
             priority: None,
             labels: "[]".to_string(),
             depends_on: serde_json::to_string(&deps).unwrap(),
+            relates_to: "[]".to_string(),
             duplicate_of: None,
             created_date: Some("2026-01-01".to_string()),
             started_date: None,

@@ -15,6 +15,7 @@ fn make_config(templates: HashMap<String, TemplateConfig>) -> RepoConfig {
         labels: default_labels(),
         auto_commit: Default::default(),
         branch_policy: Default::default(),
+        roadmap: Default::default(),
     }
 }
 

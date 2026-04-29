@@ -22,6 +22,7 @@ fn make_item(file_path: &str, status: &str, ext_id: &str, item_type: &str) -> It
         priority: None,
         labels: "[]".to_string(),
         depends_on: "[]".to_string(),
+        relates_to: "[]".to_string(),
         duplicate_of: None,
         created_date: None,
         started_date: None,
@@ -56,6 +57,7 @@ fn make_config() -> RepoConfig {
         labels: Default::default(),
         auto_commit: Default::default(),
         branch_policy: Default::default(),
+        roadmap: Default::default(),
     }
 }
 

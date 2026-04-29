@@ -160,6 +160,7 @@ mod tests {
             priority: None,
             labels: "[]".to_string(),
             depends_on: serde_json::to_string(&deps).unwrap(),
+            relates_to: "[]".to_string(),
             duplicate_of: None,
             created_date: None,
             started_date: None,
