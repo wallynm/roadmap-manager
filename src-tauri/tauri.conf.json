@@ -20,7 +20,7 @@
         "decorations": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 22, "y": 23 },
+        "trafficLightPosition": { "x": 12, "y": 23 },
         "resizable": true,
         "backgroundColor": "#1e1e29"
       }

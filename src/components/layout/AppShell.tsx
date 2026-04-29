@@ -22,7 +22,7 @@ export function AppShell({ children }: AppShellProps) {
         <div data-tauri-drag-region className="w-52 h-full shrink-0" />
 
         {/* Toolbar slot */}
-        <div className="flex-1 flex items-center min-w-0 px-1">
+        <div className="flex-1 flex items-center min-w-0 px-1 pr-3">
           {headerSlot}
         </div>
       </div>
