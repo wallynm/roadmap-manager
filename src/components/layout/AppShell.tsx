@@ -12,17 +12,22 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-card">
-      {/* Custom titlebar — replaces native macOS titlebar via titleBarStyle: Overlay.
-          data-tauri-drag-region makes the empty area draggable.
-          pl-[72px] avoids overlapping the native traffic light buttons. */}
-      <div
-        data-tauri-drag-region
-        className="flex items-center h-10 shrink-0 pl-[72px] pr-3 select-none border-b border-border/40"
-      >
-        {headerSlot
-          ? <div className="flex-1 flex items-center min-w-0">{headerSlot}</div>
-          : <div className="flex-1" />
-        }
+      {/* Custom titlebar — titleBarStyle: Overlay keeps native macOS traffic lights.
+          data-tauri-drag-region on empty areas makes the window draggable. */}
+      <div className="flex items-center h-10 shrink-0 select-none border-b border-border/40">
+        {/* Left zone: matches ProjectRail width — traffic lights sit here */}
+        <div data-tauri-drag-region className="w-[60px] h-full shrink-0" />
+
+        {/* Middle zone: matches Sidebar width — draggable empty space */}
+        <div data-tauri-drag-region className="w-56 h-full shrink-0" />
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border/50 shrink-0" />
+
+        {/* Toolbar slot */}
+        <div className="flex-1 flex items-center min-w-0 px-3">
+          {headerSlot}
+        </div>
       </div>
 
       {/* Body */}
