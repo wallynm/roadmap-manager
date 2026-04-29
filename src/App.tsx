@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { PageHeaderProvider } from "@/contexts/PageHeaderContext";
 import { Toaster } from "sonner";
 import { AppShell } from "@/components/layout/AppShell";
 import { CommandPalette } from "@/components/command/CommandPalette";
@@ -21,6 +22,7 @@ export default function App() {
 
   return (
     <>
+      <PageHeaderProvider>
       <CommandPalette />
       <InboxModal />
       <AppShell>
@@ -35,6 +37,7 @@ export default function App() {
           <Route path="/repos/:repoId/items/:itemId" element={<ItemView />} />
         </Routes>
       </AppShell>
+      </PageHeaderProvider>
       <Toaster
         position="bottom-right"
         theme="dark"

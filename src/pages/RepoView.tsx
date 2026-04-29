@@ -1,5 +1,5 @@
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useItems } from "@/hooks/useItems";
 import { useImpactRanking } from "@/hooks/useValidation";
 import { useRepoPrefs, saveLastRepo, type ViewId, type ActiveFilters } from "@/hooks/usePrefs";
@@ -8,9 +8,9 @@ import { ItemList, type SortField, type SortDir } from "@/components/list/ItemLi
 import { DepGraph } from "@/components/graph/DepGraph";
 import { FilterBar, type SortOption } from "@/components/filters/FilterBar";
 import type { Item, ItemFilters } from "@/types";
-import { cn } from "@/lib/utils";
 import { LayoutGrid, List, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useSetPageHeader } from "@/contexts/PageHeaderContext";
 
 const VIEWS = [
   { id: "kanban", label: "Kanban", icon: LayoutGrid },
@@ -144,6 +144,42 @@ export function RepoView() {
 
   const currentSort = SORT_OPTIONS[sortIdx];
 
+  // Inject toolbar into the app titlebar
+  const toolbar = useMemo(() => (
+    <div className="flex items-center justify-between w-full gap-2">
+      <div className="flex items-center gap-1">
+        {TABS.map((t) => (
+          <Button key={t.id} variant="tab" size="sm" active={tab === t.id} onClick={() => setTab(t.id)}>
+            {t.label}
+          </Button>
+        ))}
+      </div>
+      <div className="flex items-center gap-1">
+        <FilterBar
+          items={items ?? []}
+          filters={activeFilters}
+          onFiltersChange={handleFiltersChange}
+          sortIdx={sortIdx}
+          onSortChange={handleSetSortIdx}
+          sortOptions={SORT_OPTIONS}
+        />
+        <div className="w-px h-4 bg-border mx-0.5" />
+        {VIEWS.map((view) => (
+          <Button key={view.id} variant="secondary" size="sm" active={currentView === view.id} onClick={() => handleSetView(view.id)}>
+            <view.icon className="w-3.5 h-3.5" />
+            {view.label}
+          </Button>
+        ))}
+        <span className="text-xs text-muted-foreground ml-2 tabular-nums">
+          {filteredItems.length}
+        </span>
+      </div>
+    </div>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [tab, currentView, sortIdx, activeFilters, items, filteredItems.length]);
+
+  useSetPageHeader(toolbar, [toolbar]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -154,43 +190,6 @@ export function RepoView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4 shrink-0 gap-2 flex-wrap">
-        {/* Tabs */}
-        <div className="flex items-center gap-1">
-          {TABS.map((t) => (
-            <Button key={t.id} variant="tab" size="sm" active={tab === t.id} onClick={() => setTab(t.id)}>
-              {t.label}
-            </Button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1 flex-wrap">
-          {/* Filter + Sort */}
-          <FilterBar
-            items={items ?? []}
-            filters={activeFilters}
-            onFiltersChange={handleFiltersChange}
-            sortIdx={sortIdx}
-            onSortChange={handleSetSortIdx}
-            sortOptions={SORT_OPTIONS}
-          />
-
-          <div className="w-px h-4 bg-border mx-0.5" />
-
-          {/* View switcher */}
-          {VIEWS.map((view) => (
-            <Button key={view.id} variant="secondary" size="sm" active={currentView === view.id} onClick={() => handleSetView(view.id)}>
-              <view.icon className="w-3.5 h-3.5" />
-              {view.label}
-            </Button>
-          ))}
-          <span className="text-xs text-muted-foreground ml-2">
-            {filteredItems.length}
-          </span>
-        </div>
-      </div>
-
       <div className="flex-1 min-h-0">
         {currentView === "kanban" && (
           <KanbanBoard items={filteredItems} onItemClick={handleItemClick} repoId={repoId} />
