@@ -7,8 +7,9 @@ import { cn, parseLabels, parseDependsOn, formatAge, PRIORITY_CONFIG } from "@/l
 interface ItemCardProps {
   item: Item;
   onClick: () => void;
-  isGhost?: boolean;   // rendered in-place as placeholder while dragging
-  isOverlay?: boolean; // rendered in DragOverlay as the floating card
+  isGhost?: boolean;    // rendered in-place as placeholder while dragging
+  isOverlay?: boolean;  // rendered in DragOverlay as the floating card
+  dragActive?: boolean; // a drag session is in progress (used to suppress drop transition)
 }
 
 const PRIORITY_BORDER: Record<string, string> = {
@@ -19,7 +20,7 @@ const PRIORITY_BORDER: Record<string, string> = {
   Nenhuma: "border-l-transparent",
 };
 
-export function ItemCard({ item, onClick, isGhost = false, isOverlay = false }: ItemCardProps) {
+export function ItemCard({ item, onClick, isGhost = false, isOverlay = false, dragActive = false }: ItemCardProps) {
   const {
     attributes,
     listeners,
@@ -30,7 +31,9 @@ export function ItemCard({ item, onClick, isGhost = false, isOverlay = false }: 
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    // Only apply transition while a drag is active — suppresses the snap-back
+    // animation on drop that causes the visual glitch.
+    transition: dragActive ? transition : undefined,
   };
 
   const labels = parseLabels(item.labels);

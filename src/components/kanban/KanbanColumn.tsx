@@ -47,6 +47,7 @@ export function KanbanColumn({
               item={item}
               onClick={() => onItemClick(item)}
               isGhost={item.id === activeId}
+              dragActive={!!activeId}
             />
           ))}
 
