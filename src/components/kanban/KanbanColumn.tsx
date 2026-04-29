@@ -123,7 +123,7 @@ export function KanbanColumn({
           ) : repoId ? (
             <button
               onClick={startCreating}
-              className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors rounded-lg hover:bg-accent/20"
+              className="flex items-center justify-center gap-1.5 w-full px-3 py-2 mt-1 text-xs text-muted-foreground/50 hover:text-muted-foreground bg-secondary/60 hover:bg-secondary rounded-lg transition-colors"
             >
               <Plus className="w-3 h-3" />
               Add item
