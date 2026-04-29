@@ -14,7 +14,15 @@ import { cn } from "@/lib/utils";
 import type { Item, ItemStatus, Priority } from "@/types";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Save, ChevronDown, X, Lock, Plus, Link2 } from "lucide-react";
+import { ChevronRight, Save, ChevronDown, X, Lock, Plus, Link2, PanelRightClose, PanelRightOpen } from "lucide-react";
+
+const SIDEBAR_PREF_KEY = "item-sidebar-open";
+function getSidebarPref(): boolean {
+  try { return localStorage.getItem(SIDEBAR_PREF_KEY) !== "false"; } catch { return true; }
+}
+function setSidebarPref(v: boolean) {
+  try { localStorage.setItem(SIDEBAR_PREF_KEY, v ? "true" : "false"); } catch { /* noop */ }
+}
 
 function extractFirstHeading(markdown: string): string | null {
   const match = /^#\s+(.+)/m.exec(markdown);
@@ -209,6 +217,7 @@ export function ItemView() {
   const addRel = useAddRelation();
   const removeRel = useRemoveRelation();
 
+  const [sidebarOpen, setSidebarOpen] = useState(getSidebarPref);
   const [editTitle, setEditTitle] = useState("");
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [note, setNote] = useState("");
@@ -216,6 +225,8 @@ export function ItemView() {
   const [depInput, setDepInput] = useState("");
   const [relInput, setRelInput] = useState("");
   const bodyRef = useRef("");
+
+  const toggleSidebar = () => setSidebarOpen((v) => { setSidebarPref(!v); return !v; });
 
   useEffect(() => {
     if (item) {
@@ -311,17 +322,29 @@ export function ItemView() {
   return (
     <div className="h-full flex flex-col">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm mb-4 shrink-0">
-        <Link to={`/repos/${repoId}`} className="text-muted-foreground hover:text-foreground transition-colors">
-          {repo?.name ?? "Repo"}
-        </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-        <Link to={`/repos/${repoId}`} className="text-muted-foreground hover:text-foreground transition-colors font-mono text-xs">
-          {item.external_id}
-        </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-        <span className="text-foreground truncate max-w-sm">{item.title}</span>
-      </nav>
+      <div className="flex items-center mb-4 shrink-0 gap-2">
+        <nav className="flex items-center gap-1.5 text-sm flex-1 min-w-0">
+          <Link to={`/repos/${repoId}`} className="text-muted-foreground hover:text-foreground transition-colors">
+            {repo?.name ?? "Repo"}
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+          <Link to={`/repos/${repoId}`} className="text-muted-foreground hover:text-foreground transition-colors font-mono text-xs">
+            {item.external_id}
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-foreground truncate max-w-sm">{item.title}</span>
+        </nav>
+        <button
+          onClick={toggleSidebar}
+          className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          title={sidebarOpen ? "Hide properties" : "Show properties"}
+        >
+          {sidebarOpen
+            ? <PanelRightClose className="w-4 h-4" />
+            : <PanelRightOpen className="w-4 h-4" />
+          }
+        </button>
+      </div>
 
       {/* Main layout */}
       <div className="flex gap-8 flex-1 min-h-0">
@@ -368,7 +391,10 @@ export function ItemView() {
         </div>
 
         {/* Right sidebar */}
-        <aside className="w-56 shrink-0 overflow-y-auto">
+        <aside className={cn(
+          "shrink-0 overflow-y-auto transition-all duration-200",
+          sidebarOpen ? "w-56 opacity-100" : "w-0 opacity-0 overflow-hidden pointer-events-none"
+        )}>
           <Button
             variant="primary"
             className="w-full mb-2"
