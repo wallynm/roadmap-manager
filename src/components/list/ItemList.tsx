@@ -175,16 +175,16 @@ function StatusGroup({
             ) : (
               <div
                 key={idx}
-                className="my-1 rounded-lg border border-border/60 overflow-hidden"
+                className="my-1 rounded-lg border border-border overflow-hidden"
               >
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-secondary/50 border-b border-border/40">
-                  <Link2 className="w-2.5 h-2.5 text-muted-foreground/40" />
-                  <span className="text-[10px] text-muted-foreground/40 font-medium tracking-wide">
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-secondary border-b border-border/60">
+                  <Link2 className="w-2.5 h-2.5 text-muted-foreground/60" />
+                  <span className="text-[10px] text-muted-foreground/60 font-medium tracking-wide">
                     {cluster.length} relacionados
                   </span>
                 </div>
                 {cluster.map((item, i) => (
-                  <div key={item.id} className={cn(i > 0 && "border-t border-border/30")}>
+                  <div key={item.id} className={cn(i > 0 && "border-t border-border/50")}>
                     <ItemRow
                       item={item}
                       onClick={() => onItemClick(item)}
