@@ -1,0 +1,448 @@
+use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
+use std::path::Path;
+use uuid::Uuid;
+use walkdir::WalkDir;
+
+use crate::db::{items, repos};
+use crate::error::{AppError, AppResult};
+use crate::parser::{self, status::normalize_status};
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct ScanReport {
+    pub added: u32,
+    pub updated: u32,
+    pub removed: u32,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TemplateConfig {
+    pub dir: String,
+    #[serde(rename = "filePrefix")]
+    pub file_prefix: String,
+    #[serde(rename = "idPrefix")]
+    pub id_prefix: String,
+    #[serde(rename = "idPadding", default = "default_padding")]
+    pub id_padding: u32,
+    #[serde(rename = "frontmatterFields", default)]
+    pub frontmatter_fields: Vec<String>,
+    #[serde(rename = "requiredFields", default)]
+    pub required_fields: Vec<String>,
+    #[serde(default)]
+    pub defaults: serde_json::Value,
+    #[serde(rename = "bodyTemplate", default)]
+    pub body_template: String,
+}
+
+fn default_padding() -> u32 {
+    2
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct RepoConfig {
+    pub templates: std::collections::HashMap<String, TemplateConfig>,
+    #[serde(default)]
+    pub labels: LabelsConfig,
+    #[serde(rename = "autoCommit", default)]
+    pub auto_commit: AutoCommitConfig,
+    #[serde(rename = "branchPolicy", default)]
+    pub branch_policy: BranchPolicyConfig,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct LabelsConfig {
+    #[serde(default)]
+    pub whitelist: Vec<String>,
+    #[serde(rename = "allowFreeForm", default = "default_true")]
+    pub allow_free_form: bool,
+    #[serde(default)]
+    pub colors: std::collections::HashMap<String, String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AutoCommitConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub branch: Option<String>,
+    #[serde(rename = "messageFormat", default = "default_message_format")]
+    pub message_format: String,
+    #[serde(rename = "includeNoteInBody", default = "default_true")]
+    pub include_note_in_body: bool,
+    #[serde(rename = "addReferenceLine", default = "default_true")]
+    pub add_reference_line: bool,
+    #[serde(rename = "skipIfDirty", default)]
+    pub skip_if_dirty: bool,
+}
+
+impl Default for AutoCommitConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            branch: None,
+            message_format: default_message_format(),
+            include_note_in_body: true,
+            add_reference_line: true,
+            skip_if_dirty: false,
+        }
+    }
+}
+
+fn default_message_format() -> String {
+    "chore(roadmap): {ID} → {STATUS_VERB}".into()
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct BranchPolicyConfig {
+    #[serde(rename = "allowedBranches")]
+    pub allowed_branches: Option<Vec<String>>,
+    #[serde(rename = "warnIfDetached", default = "default_true")]
+    pub warn_if_detached: bool,
+}
+
+pub fn default_config() -> RepoConfig {
+    let mut templates = std::collections::HashMap::new();
+
+    templates.insert(
+        "improvement".to_string(),
+        TemplateConfig {
+            dir: "docs/improvements".to_string(),
+            file_prefix: "imp".to_string(),
+            id_prefix: "IMP".to_string(),
+            id_padding: 2,
+            frontmatter_fields: vec![
+                "id", "title", "type", "priority", "status", "labels", "created-date",
+                "started-date", "completed-date", "depends-on",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            required_fields: vec!["id", "title", "type", "status"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
+            defaults: serde_json::json!({
+                "priority": "Média",
+                "status": "⬜ pendente",
+                "labels": ["architecture"]
+            }),
+            body_template: "# {ID} — {TITLE}\n\n**Contexto:** TODO\n\n**Ação:** TODO\n"
+                .to_string(),
+        },
+    );
+
+    templates.insert(
+        "bug".to_string(),
+        TemplateConfig {
+            dir: "docs/bugs".to_string(),
+            file_prefix: "bug".to_string(),
+            id_prefix: "BUG".to_string(),
+            id_padding: 2,
+            frontmatter_fields: vec![
+                "id", "title", "type", "priority", "status", "labels", "created-date",
+                "started-date", "completed-date", "depends-on",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            required_fields: vec!["id", "title", "type", "status"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
+            defaults: serde_json::json!({
+                "priority": "Alta",
+                "status": "⬜ pendente",
+                "labels": ["bug", "correctness"]
+            }),
+            body_template:
+                "# {ID} — {TITLE}\n\n## Sintoma\n\nTODO\n\n## Reprodução\n\n1. TODO\n\n## Causa raiz\n\nTODO\n"
+                    .to_string(),
+        },
+    );
+
+    templates.insert(
+        "refactoring".to_string(),
+        TemplateConfig {
+            dir: "docs/refactoring".to_string(),
+            file_prefix: "ref".to_string(),
+            id_prefix: "REF".to_string(),
+            id_padding: 2,
+            frontmatter_fields: vec![
+                "id", "title", "type", "priority", "status", "labels", "created-date",
+                "completed-date", "depends-on",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            required_fields: vec!["id", "title", "type", "status"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
+            defaults: serde_json::json!({
+                "priority": "Média",
+                "status": "⬜ pendente",
+                "labels": ["refactoring"]
+            }),
+            body_template: "# {ID} — {TITLE}\n\n**Contexto:** TODO\n\n**Plano:** TODO\n"
+                .to_string(),
+        },
+    );
+
+    templates.insert(
+        "feature".to_string(),
+        TemplateConfig {
+            dir: "docs/features".to_string(),
+            file_prefix: "feat".to_string(),
+            id_prefix: "FEAT".to_string(),
+            id_padding: 2,
+            frontmatter_fields: vec![
+                "id", "title", "type", "status", "labels", "created-date", "completed-date",
+                "depends-on",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            required_fields: vec!["id", "title", "type", "status"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
+            defaults: serde_json::json!({
+                "status": "⬜ pendente",
+                "labels": []
+            }),
+            body_template: "# {ID} — {TITLE}\n\n## Objetivo\n\nTODO\n\n## API\n\nTODO\n"
+                .to_string(),
+        },
+    );
+
+    let mut colors = std::collections::HashMap::new();
+    colors.insert("architecture".into(), "#8B5CF6".into());
+    colors.insert("performance".into(), "#F59E0B".into());
+    colors.insert("correctness".into(), "#EF4444".into());
+    colors.insert("feature".into(), "#3B82F6".into());
+    colors.insert("ui".into(), "#EC4899".into());
+    colors.insert("testing".into(), "#10B981".into());
+    colors.insert("refactoring".into(), "#6B7280".into());
+    colors.insert("design".into(), "#06B6D4".into());
+    colors.insert("documentation".into(), "#A78BFA".into());
+    colors.insert("bug".into(), "#DC2626".into());
+    colors.insert("tech-debt".into(), "#9CA3AF".into());
+
+    RepoConfig {
+        templates,
+        labels: LabelsConfig {
+            whitelist: vec![
+                "architecture",
+                "performance",
+                "correctness",
+                "feature",
+                "ui",
+                "testing",
+                "refactoring",
+                "design",
+                "documentation",
+                "bug",
+                "tech-debt",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            allow_free_form: true,
+            colors,
+        },
+        auto_commit: AutoCommitConfig::default(),
+        branch_policy: BranchPolicyConfig::default(),
+    }
+}
+
+pub fn derive_scope(file_path: &str, template_dir: &str) -> String {
+    if let Some(idx) = file_path.find(&format!("/{}", template_dir)) {
+        let scope = &file_path[..idx];
+        if scope.is_empty() {
+            return String::new();
+        }
+        return scope.to_string();
+    }
+    if file_path.starts_with(template_dir) {
+        return String::new();
+    }
+    String::new()
+}
+
+pub fn discover_template_dirs(repo_path: &Path, template_dir: &str) -> Vec<std::path::PathBuf> {
+    let mut dirs = Vec::new();
+
+    let direct = repo_path.join(template_dir);
+    if direct.exists() {
+        dirs.push(direct);
+    }
+
+    for entry in WalkDir::new(repo_path)
+        .max_depth(5)
+        .into_iter()
+        .flatten()
+    {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if path == repo_path.join(template_dir) {
+            continue;
+        }
+        if path.ends_with(template_dir) {
+            let rel = path.strip_prefix(repo_path).unwrap_or(path);
+            let rel_str = rel.to_string_lossy();
+            if rel_str.contains("node_modules") || rel_str.contains("target") || rel_str.starts_with('.') {
+                continue;
+            }
+            dirs.push(path.to_path_buf());
+        }
+    }
+
+    dirs
+}
+
+pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport> {
+    let repo = repos::get(pool, repo_id).await?;
+    let config: RepoConfig = serde_json::from_str(&repo.config)
+        .map_err(|e| AppError::Validation(format!("Invalid repo config: {}", e)))?;
+
+    let repo_path = Path::new(&repo.path);
+    let mut report = ScanReport::default();
+    let mut found_paths: Vec<String> = Vec::new();
+
+    for (type_name, template) in &config.templates {
+        let scan_dirs = discover_template_dirs(repo_path, &template.dir);
+        if scan_dirs.is_empty() {
+            continue;
+        }
+
+        for dir in &scan_dirs {
+            for entry in WalkDir::new(dir).max_depth(1).into_iter().flatten() {
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+                if !file_name.ends_with(".md") {
+                    continue;
+                }
+                let skip = ["INDEX.md", "README.md", "ROADMAP.md"];
+                if skip.iter().any(|s| file_name.as_ref() == *s) {
+                    continue;
+                }
+
+            let rel_path = path
+                .strip_prefix(repo_path)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .to_string();
+            found_paths.push(rel_path.clone());
+
+            let content = match std::fs::read_to_string(path) {
+                Ok(c) => c,
+                Err(e) => {
+                    report.errors.push(format!("{}: {}", rel_path, e));
+                    continue;
+                }
+            };
+
+            let file_hash = parser::hash(&content);
+            let parsed = match parser::parse(&content) {
+                Ok(p) => p,
+                Err(e) => {
+                    report.errors.push(format!("{}: {}", rel_path, e));
+                    continue;
+                }
+            };
+
+            let external_id = parser::extract_string(&parsed.yaml, "id").unwrap_or_default();
+            let title = parser::extract_string(&parsed.yaml, "title").unwrap_or_default();
+            let status_raw =
+                parser::extract_string(&parsed.yaml, "status").unwrap_or_else(|| "backlog".into());
+            let status = normalize_status(&status_raw);
+            let priority = parser::extract_string(&parsed.yaml, "priority")
+                .and_then(|p| parser::normalize_priority(&p));
+            let labels = parser::extract_string_array(&parsed.yaml, "labels");
+            let depends_on = parser::extract_string_array(&parsed.yaml, "depends-on");
+            let created_date = parser::extract_string(&parsed.yaml, "created-date");
+            let started_date = parser::extract_string(&parsed.yaml, "started-date");
+            let completed_date = parser::extract_string(&parsed.yaml, "completed-date");
+            let duplicate_of = parser::extract_string(&parsed.yaml, "duplicate-of");
+
+            if external_id.is_empty() || title.is_empty() {
+                report
+                    .errors
+                    .push(format!("{}: missing id or title in frontmatter", rel_path));
+                continue;
+            }
+
+            let existing = items::get_by_path(pool, repo_id, &rel_path).await?;
+
+            match existing {
+                Some(existing_item) => {
+                    if existing_item.file_hash != file_hash {
+                        let mut updated = existing_item.clone();
+                        updated.title = title;
+                        updated.body = parsed.body;
+                        updated.frontmatter = parsed.raw_frontmatter;
+                        updated.file_hash = file_hash;
+                        updated.status = status.as_str().to_string();
+                        updated.priority = priority;
+                        updated.labels = serde_json::to_string(&labels).unwrap_or_default();
+                        updated.depends_on = serde_json::to_string(&depends_on).unwrap_or_default();
+                        updated.duplicate_of = duplicate_of;
+                        updated.created_date = created_date;
+                        updated.started_date = started_date;
+                        updated.completed_date = completed_date;
+                        items::update(pool, &updated).await?;
+                        report.updated += 1;
+                    }
+                }
+                None => {
+                    let scope = derive_scope(&rel_path, &template.dir);
+                    let item = items::Item {
+                        id: Uuid::new_v4().to_string(),
+                        repo_id: repo_id.to_string(),
+                        external_id,
+                        scope,
+                        item_type: type_name.clone(),
+                        title,
+                        file_path: rel_path,
+                        file_hash,
+                        body: parsed.body,
+                        frontmatter: parsed.raw_frontmatter,
+                        status: status.as_str().to_string(),
+                        priority,
+                        labels: serde_json::to_string(&labels).unwrap_or_default(),
+                        depends_on: serde_json::to_string(&depends_on).unwrap_or_default(),
+                        duplicate_of,
+                        created_date,
+                        started_date,
+                        completed_date,
+                        updated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
+                    };
+                    items::insert(pool, &item).await?;
+                    report.added += 1;
+                }
+            }
+            }
+        }
+    }
+
+    let all_items = items::list_by_repo(pool, repo_id, None).await?;
+    for item in all_items {
+        if !found_paths.contains(&item.file_path) {
+            items::delete(pool, &item.id).await?;
+            report.removed += 1;
+        }
+    }
+
+    repos::set_last_scan(pool, repo_id).await?;
+
+    Ok(report)
+}

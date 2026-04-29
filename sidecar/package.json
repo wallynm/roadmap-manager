@@ -1,0 +1,14 @@
+{
+  "name": "roadmap-manager-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "agent.mjs",
+  "scripts": {
+    "start": "node agent.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "zod": "^3.22.0"
+  }
+}

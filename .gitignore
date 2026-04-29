@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+sidecar/dist/
+
+# Tauri
+.tauri/
+
+# Database (local app data — never commit)
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Logs
+*.log
+logs/
+
+# Environment / secrets
+.env
+.env.local
+
+# IDE
+.vscode/settings.json
+.idea/
+.DS_Store
+
+# Test artifacts
+coverage/
+*.tmp

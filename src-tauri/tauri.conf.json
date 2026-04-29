@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicktomlin/tauri-schema/master/schema.json",
+  "productName": "Roadmap Manager",
+  "version": "0.1.0",
+  "identifier": "com.journeystudios.roadmap-manager",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Roadmap Manager",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 600,
+        "decorations": true,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [],
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}
