@@ -1,9 +1,11 @@
 ---
 id: ADR-001
 title: SQLite (not Postgres) for the local cache
-type: decision
-status: ✅ accepted
+type: adr
+status: ✅ resolvido
+labels: []
 created-date: 2026-04-29
+depends-on: []
 ---
 
 # ADR-001 — SQLite (not Postgres) for the local cache
