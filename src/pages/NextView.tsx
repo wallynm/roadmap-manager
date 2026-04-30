@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useMemo } from "react";
-import { Zap, Lock, X } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Zap, Lock, X, ChevronDown, Check } from "lucide-react";
 import { useNextItems } from "@/hooks/useNextItems";
 import {
   PriorityNone, PriorityUrgent, PriorityHigh, PriorityMedium, PriorityLow,
@@ -23,7 +23,7 @@ function scopeLabel(scope: string): string {
   return parts[parts.length - 1] ?? scope;
 }
 
-function FilterChips({
+function FilterPill({
   label,
   options,
   active,
@@ -34,41 +34,72 @@ function FilterChips({
   active: string | null;
   onSelect: (v: string | null) => void;
 }) {
-  if (options.length <= 1) {
-    return null;
-  }
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) { return; }
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const isActive = active !== null;
+
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider shrink-0">
-        {label}
-      </span>
+    <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => onSelect(null)}
+        onClick={() => setOpen((v) => !v)}
         className={cn(
-          "text-[11px] px-2 py-0.5 rounded-full transition-colors",
-          active === null
-            ? "bg-primary/20 text-primary"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          "flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors",
+          isActive
+            ? "border-primary/40 bg-primary/10 text-primary"
+            : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
       >
-        All
+        <span>{isActive ? `${label}: ${active}` : label}</span>
+        {isActive ? (
+          <X
+            className="w-3 h-3 shrink-0"
+            onClick={(e) => { e.stopPropagation(); onSelect(null); setOpen(false); }}
+          />
+        ) : (
+          <ChevronDown className="w-3 h-3 shrink-0 opacity-50" />
+        )}
       </button>
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onSelect(active === opt ? null : opt)}
-          className={cn(
-            "text-[11px] px-2 py-0.5 rounded-full transition-colors",
-            active === opt
-              ? "bg-primary/20 text-primary"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-        >
-          {opt}
-        </button>
-      ))}
+
+      {open && options.length > 0 && (
+        <div className="absolute top-full left-0 mt-1 z-50 min-w-[130px] bg-popover border border-border rounded-lg shadow-lg overflow-hidden py-1">
+          <button
+            type="button"
+            onClick={() => { onSelect(null); setOpen(false); }}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-accent transition-colors"
+          >
+            <span className={cn("w-3 h-3 shrink-0", active === null ? "opacity-100" : "opacity-0")}>
+              <Check className="w-3 h-3" />
+            </span>
+            All
+          </button>
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => { onSelect(opt); setOpen(false); }}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-accent transition-colors"
+            >
+              <span className={cn("w-3 h-3 shrink-0", active === opt ? "opacity-100" : "opacity-0")}>
+                <Check className="w-3 h-3" />
+              </span>
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -212,20 +243,26 @@ export function NextView() {
       </div>
 
       {/* Filters */}
-      <div className="space-y-2">
-        <FilterChips
-          label="Scope"
-          options={scopeOptions}
-          active={activeScope}
-          onSelect={(v) => setFilter("scope", v)}
-        />
-        <FilterChips
-          label="Type"
-          options={allTypes}
-          active={activeType}
-          onSelect={(v) => setFilter("type", v)}
-        />
-      </div>
+      {(scopeOptions.length > 1 || allTypes.length > 1) && (
+        <div className="flex items-center gap-2">
+          {scopeOptions.length > 1 && (
+            <FilterPill
+              label="Scope"
+              options={scopeOptions}
+              active={activeScope}
+              onSelect={(v) => setFilter("scope", v)}
+            />
+          )}
+          {allTypes.length > 1 && (
+            <FilterPill
+              label="Type"
+              options={allTypes}
+              active={activeType}
+              onSelect={(v) => setFilter("type", v)}
+            />
+          )}
+        </div>
+      )}
 
       {filtered.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-12">
