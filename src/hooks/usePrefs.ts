@@ -25,6 +25,7 @@ interface RepoPrefs {
   activeFilters: ActiveFilters;
   tab: string;
   labelWeights?: LabelWeight[];
+  scopeWeights?: Record<string, number>;
 }
 
 interface Prefs {
@@ -139,4 +140,40 @@ export function useLabelWeights(repoId: string) {
   }, [repoId, persist_]);
 
   return { weights, setMultiplier, reorder, remove };
+}
+
+export function useScopeWeights(repoId: string) {
+  const [weights, setWeightsState] = useState<Record<string, number>>(() => {
+    return getRepoPrefs(repoId).scopeWeights ?? {};
+  });
+
+  useEffect(() => {
+    setWeightsState(getRepoPrefs(repoId).scopeWeights ?? {});
+  }, [repoId]);
+
+  const persist_ = useCallback((next: Record<string, number>) => {
+    const current = load();
+    current.repos[repoId] = {
+      ...REPO_DEFAULTS,
+      ...(current.repos[repoId] ?? {}),
+      scopeWeights: next,
+    };
+    persist(current);
+    setWeightsState(next);
+  }, [repoId]);
+
+  const setWeight = useCallback((scope: string, multiplier: number) => {
+    const current = load();
+    const existing = current.repos[repoId]?.scopeWeights ?? {};
+    persist_({ ...existing, [scope]: multiplier });
+  }, [repoId, persist_]);
+
+  const remove = useCallback((scope: string) => {
+    const current = load();
+    const existing = { ...(current.repos[repoId]?.scopeWeights ?? {}) };
+    delete existing[scope];
+    persist_(existing);
+  }, [repoId, persist_]);
+
+  return { weights, setWeight, remove };
 }

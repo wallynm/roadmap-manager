@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useId } from "react";
 import { useParams } from "react-router-dom";
 import { useRepos, useRemoveRepo, useRescanRepo, useUpdateRepo } from "@/hooks/useRepos";
 import { useItems } from "@/hooks/useItems";
-import { useLabelWeights } from "@/hooks/usePrefs";
+import { useLabelWeights, useScopeWeights } from "@/hooks/usePrefs";
 import { cn } from "@/lib/utils";
 import { Trash2, RefreshCw, Check, ChevronUp, ChevronDown, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -49,6 +49,7 @@ export function SettingsView() {
     <div className="max-w-xl mx-auto space-y-2">
       <h1 className="text-sm font-semibold mb-5">Settings — {repo.name}</h1>
       <ProjectPanel repo={repo} />
+      <ScopeWeightsPanel repoId={repo.id} />
       <LabelWeightsPanel repoId={repo.id} />
     </div>
   );
@@ -178,6 +179,119 @@ function ProjectPanel({ repo }: { repo: Repo }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function ScopeWeightsPanel({ repoId }: { repoId: string }) {
+  const { data: items } = useItems(repoId, undefined);
+  const { weights, setWeight, remove } = useScopeWeights(repoId);
+  const inputId = useId();
+
+  const allScopes = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of items ?? []) {
+      if (item.scope) { set.add(item.scope); }
+    }
+    return [...set].sort();
+  }, [items]);
+
+  const [newScope, setNewScope] = useState("");
+  const unconfigured = allScopes.filter((s) => !(s in weights));
+
+  const handleAdd = (scope: string) => {
+    if (!scope || scope in weights) { return; }
+    setWeight(scope, 1);
+    setNewScope("");
+  };
+
+  const scopeLabel = (s: string) => {
+    const parts = s.split("/");
+    return parts[parts.length - 1] ?? s;
+  };
+
+  const configured = Object.entries(weights).sort(([a], [b]) => a.localeCompare(b));
+
+  return (
+    <section className="space-y-3 pt-6 border-t border-border">
+      <div>
+        <h2 className="text-sm font-medium">Next Up — Scope weights</h2>
+        <p className="text-xs text-muted-foreground mt-1">
+          Multiplies the score of all items in a scope. Default for unconfigured scopes is ×1.
+        </p>
+      </div>
+
+      {configured.length > 0 && (
+        <div className="rounded-lg border border-border divide-y divide-border">
+          {configured.map(([scope, multiplier]) => (
+            <div key={scope} className="flex items-center gap-2 px-3 py-2">
+              <span className="flex-1 text-xs">
+                <span className="font-medium">{scopeLabel(scope)}</span>
+                <span className="text-muted-foreground/50 ml-1.5 font-mono text-[10px]">{scope}</span>
+              </span>
+              <span className="text-xs text-muted-foreground shrink-0">×</span>
+              <input
+                type="number"
+                min={0.1}
+                step={1}
+                value={multiplier}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v) && v > 0) { setWeight(scope, v); }
+                }}
+                className="w-16 bg-secondary/50 border border-border rounded px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={() => remove(scope)}
+                className="text-muted-foreground/40 hover:text-destructive ml-1 shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {configured.length === 0 && (
+        <p className="text-xs text-muted-foreground/50 italic">
+          No scope weights configured. All scopes score ×1 by default.
+        </p>
+      )}
+
+      <div className="flex items-center gap-2">
+        {unconfigured.length > 0 ? (
+          <select
+            id={inputId}
+            value={newScope}
+            onChange={(e) => setNewScope(e.target.value)}
+            className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring text-muted-foreground"
+          >
+            <option value="">Pick a scope to configure…</option>
+            {unconfigured.map((s) => (
+              <option key={s} value={s}>{scopeLabel(s)} — {s}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id={inputId}
+            value={newScope}
+            onChange={(e) => setNewScope(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { handleAdd(newScope); } }}
+            placeholder="Type a scope path…"
+            className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
+          />
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => handleAdd(newScope)}
+          disabled={!newScope}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add
+        </Button>
+      </div>
+    </section>
   );
 }
 

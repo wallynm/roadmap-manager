@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useItems } from "./useItems";
 import { useImpactRankingCache } from "./useValidation";
-import { useLabelWeights } from "./usePrefs";
+import { useLabelWeights, useScopeWeights } from "./usePrefs";
 import type { Item } from "@/types";
 
 const PRIORITY_WEIGHT: Record<string, number> = {
@@ -22,6 +22,7 @@ export interface ScoredItem {
   ready: boolean;
   blockedBy: string[];
   labelMultiplier: number;
+  scopeMultiplier: number;
   matchedLabels: string[];
 }
 
@@ -29,6 +30,7 @@ export function useNextItems(repoId: string): ScoredItem[] {
   const { data: items } = useItems(repoId, undefined);
   const { data: impactData } = useImpactRankingCache(repoId);
   const { weights } = useLabelWeights(repoId);
+  const { weights: scopeWeights } = useScopeWeights(repoId);
 
   return useMemo(() => {
     if (!items) {
@@ -60,23 +62,25 @@ export function useNextItems(repoId: string): ScoredItem[] {
           itemLabels = JSON.parse(item.labels);
         } catch {}
 
-        // Apply multipliers in configured order (product), falling back to 1 for unconfigured labels
+        // Label multipliers — product of all configured matching labels
         const matchedLabels: string[] = [];
         let labelMultiplier = 1;
         for (const { label } of weights) {
           if (itemLabels.includes(label)) {
-            const m = weightMap.get(label) ?? 1;
-            labelMultiplier *= m;
+            labelMultiplier *= weightMap.get(label) ?? 1;
             matchedLabels.push(label);
           }
         }
+
+        // Scope multiplier
+        const scopeMultiplier = scopeWeights[item.scope] ?? 1;
 
         const priorityWeight = PRIORITY_WEIGHT[item.priority ?? "Nenhuma"] ?? 1;
         const createdMs = item.created_date ? new Date(item.created_date).getTime() : 0;
         const ageDays = createdMs > 0 ? Math.floor((now - createdMs) / 86_400_000) : 0;
         const unblocks = impactMap.get(item.id) ?? 0;
 
-        const score = priorityWeight * labelMultiplier * 1000 + unblocks * 10 + ageDays;
+        const score = priorityWeight * labelMultiplier * scopeMultiplier * 1000 + unblocks * 10 + ageDays;
 
         return {
           item,
@@ -85,6 +89,7 @@ export function useNextItems(repoId: string): ScoredItem[] {
           ready: blockedBy.length === 0,
           blockedBy,
           labelMultiplier,
+          scopeMultiplier,
           matchedLabels,
         };
       })
