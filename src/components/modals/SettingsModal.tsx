@@ -413,12 +413,9 @@ export function SettingsModal() {
   if (!open) { return null; }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={(e) => { if (e.target === e.currentTarget) { setOpen(false); } }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
 
       {/* Panel */}
       <div className="relative z-10 flex w-[780px] h-[540px] rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
