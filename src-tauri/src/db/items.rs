@@ -160,8 +160,10 @@ pub async fn insert(pool: &SqlitePool, item: &Item) -> AppResult<Item> {
 pub async fn update(pool: &SqlitePool, item: &Item) -> AppResult<Item> {
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     sqlx::query(
-        "UPDATE items SET title=?, body=?, frontmatter=?, file_hash=?, status=?, priority=?, labels=?, depends_on=?, relates_to=?, duplicate_of=?, started_date=?, completed_date=?, updated_at=? WHERE id=?"
+        "UPDATE items SET scope=?, external_id=?, title=?, body=?, frontmatter=?, file_hash=?, status=?, priority=?, labels=?, depends_on=?, relates_to=?, duplicate_of=?, started_date=?, completed_date=?, updated_at=? WHERE id=?"
     )
+    .bind(&item.scope)
+    .bind(&item.external_id)
     .bind(&item.title)
     .bind(&item.body)
     .bind(&item.frontmatter)

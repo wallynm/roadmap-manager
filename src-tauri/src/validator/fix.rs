@@ -27,6 +27,7 @@ pub fn fix_issues(
     };
 
     let template_files = walk_template_files(repo_path, config);
+    fix_duplicate_ids(repo_path, config, &template_files, &mut report);
 
     for issue in issues {
         let template = match config.templates.get(&issue.template) {
@@ -141,6 +142,76 @@ pub fn fix_issues(
     }
 
     report
+}
+
+/// Scans ALL template files and fixes any that share the same (scope, external_id).
+/// Keeps the first file as-is; for each subsequent duplicate, generates a new
+/// unique ID via djb2 hash and rewrites the file's frontmatter.
+fn fix_duplicate_ids(
+    _repo_path: &Path,
+    config: &RepoConfig,
+    template_files: &[crate::scanner::TemplateFile],
+    report: &mut FixReport,
+) {
+    use std::collections::HashMap;
+
+    // Map (template, scope, external_id) → first file that claimed it
+    let mut seen: HashMap<(String, String, String), String> = HashMap::new();
+
+    for tf in template_files {
+        let template = match config.templates.get(&tf.template_name) {
+            Some(t) => t,
+            None => continue,
+        };
+
+        let raw = match std::fs::read_to_string(&tf.abs_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let parsed = match parser::parse(&raw) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+
+        let external_id = parser::extract_string(&parsed.yaml, "id").unwrap_or_default();
+        if external_id.is_empty() {
+            continue;
+        }
+
+        let scope = crate::scanner::derive_scope(&tf.rel_path, &template.dir);
+        let key = (tf.template_name.clone(), scope, external_id.clone());
+
+        if let Some(first) = seen.get(&key) {
+            if first == &tf.rel_path {
+                continue;
+            }
+            // Duplicate: regenerate ID for this file.
+            let new_id = derive_id_from_filename(&tf.rel_path, &template.id_prefix);
+            let mut yaml = parsed.yaml.clone();
+            if let Some(mapping) = yaml.as_mapping_mut() {
+                mapping.insert(
+                    serde_yaml::Value::String("id".into()),
+                    serde_yaml::Value::String(new_id.clone()),
+                );
+            }
+            let new_fm = render_yaml_frontmatter(&yaml, &template.frontmatter_fields);
+            let new_content = format!("---\n{}\n---\n\n{}\n", new_fm, parsed.body.trim_end());
+            if std::fs::write(&tf.abs_path, &new_content).is_ok() {
+                report.fixed += 1;
+                report.files.push(tf.rel_path.clone());
+                // Register the new ID so subsequent duplicates of THIS file also get fixed.
+                seen.insert(
+                    (tf.template_name.clone(), crate::scanner::derive_scope(&tf.rel_path, &template.dir), new_id),
+                    tf.rel_path.clone(),
+                );
+            } else {
+                report.skipped += 1;
+            }
+        } else {
+            seen.insert(key, tf.rel_path.clone());
+        }
+    }
 }
 
 fn derive_default(

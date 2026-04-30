@@ -365,17 +365,37 @@ pub fn default_config() -> RepoConfig {
 }
 
 pub fn derive_scope(file_path: &str, template_dir: &str) -> String {
-    if let Some(idx) = file_path.find(&format!("/{}", template_dir)) {
-        let scope = &file_path[..idx];
-        if scope.is_empty() {
-            return String::new();
-        }
-        return scope.to_string();
-    }
-    if file_path.starts_with(template_dir) {
+    let components: Vec<&str> = file_path.split('/').collect();
+    let td_components: Vec<&str> = template_dir.split('/').collect();
+    let td_len = td_components.len();
+
+    let Some(td_start) = components
+        .windows(td_len)
+        .position(|w| w == td_components.as_slice())
+    else {
         return String::new();
+    };
+
+    let prefix_parts = &components[..td_start];
+
+    let after_td = &components[td_start + td_len..];
+    let subdir = if after_td.len() > 1 { after_td[0] } else { "" };
+
+    let scope = match (prefix_parts.is_empty(), subdir.is_empty()) {
+        (true, true) => String::new(),
+        (true, false) => subdir.to_string(),
+        (false, true) => prefix_parts.join("/"),
+        (false, false) => format!("{}/{}", prefix_parts.join("/"), subdir),
+    };
+
+    // When scope would be empty and the template dir is a multi-component path
+    // (e.g. "docs/techdebt"), use its last segment so sibling template dirs
+    // produce distinct scopes in the sidebar instead of all collapsing to "".
+    if scope.is_empty() && td_len > 1 {
+        return td_components[td_len - 1].to_string();
     }
-    String::new()
+
+    scope
 }
 
 pub fn discover_template_dirs(repo_path: &Path, template_dir: &str) -> Vec<std::path::PathBuf> {
@@ -423,13 +443,26 @@ pub fn walk_template_files(
     repo_path: &Path,
     config: &RepoConfig,
 ) -> Vec<TemplateFile> {
+    let other_template_dirs: Vec<std::path::PathBuf> = config
+        .templates
+        .values()
+        .map(|t| repo_path.join(&t.dir))
+        .collect();
+
     let mut files = Vec::new();
     for (type_name, template) in &config.templates {
         let scan_dirs = discover_template_dirs(repo_path, &template.dir);
+        let current_dir_abs = repo_path.join(&template.dir);
         for dir in &scan_dirs {
-            for entry in WalkDir::new(dir).max_depth(1).into_iter().flatten() {
+            for entry in WalkDir::new(dir).max_depth(2).into_iter().flatten() {
                 let path = entry.path();
                 if !path.is_file() {
+                    continue;
+                }
+                let parent = path.parent().unwrap_or(path);
+                if parent != current_dir_abs
+                    && other_template_dirs.iter().any(|d| parent.starts_with(d) && *d != current_dir_abs)
+                {
                     continue;
                 }
                 let file_name = path.file_name().unwrap_or_default().to_string_lossy();
@@ -453,6 +486,42 @@ pub fn walk_template_files(
         }
     }
     files
+}
+
+/// Replace the `id` field in a file's YAML frontmatter with a stable hash-based
+/// unique ID derived from the filename. Returns (new_id, new_file_hash) on success.
+fn patch_id_in_file(abs_path: &Path, old_id: &str, id_prefix: &str) -> Option<(String, String)> {
+    use std::sync::LazyLock;
+    use regex::Regex;
+
+    static ID_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?m)^id:[ \t]*.*$").unwrap());
+
+    let stem = abs_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+
+    // djb2 hash of the stem for a stable, unique ID
+    let mut hash: u32 = 5381;
+    for b in stem.bytes() {
+        hash = hash.wrapping_mul(33).wrapping_add(b as u32);
+    }
+    let new_id = format!("{}-{:04X}", id_prefix, hash & 0xFFFF);
+
+    // Don't repair if the generated ID is the same as the old one (would loop)
+    if new_id == old_id {
+        return None;
+    }
+
+    let content = std::fs::read_to_string(abs_path).ok()?;
+    let patched = ID_RE.replace(&content, format!("id: {}", new_id)).to_string();
+    if patched == content {
+        return None;
+    }
+    std::fs::write(abs_path, &patched).ok()?;
+    let new_hash = crate::parser::hash(&patched);
+    Some((new_id, new_hash))
 }
 
 pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport> {
@@ -523,14 +592,18 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
         let existing = items::get_by_path(pool, repo_id, &tf.rel_path).await?;
 
         let depends_on_json = serde_json::to_string(&depends_on).unwrap_or_default();
+        let scope = derive_scope(&tf.rel_path, &template.dir);
 
         match existing {
             Some(existing_item) => {
                 let hash_changed = existing_item.file_hash != file_hash;
-                // Also update when depends_on was empty in DB but body extraction now yields IDs.
+                let id_changed = existing_item.external_id != external_id;
+                let scope_changed = existing_item.scope != scope;
                 let deps_enriched = existing_item.depends_on == "[]" && depends_on_json != "[]";
-                if hash_changed || deps_enriched {
+                if hash_changed || id_changed || scope_changed || deps_enriched {
                     let mut updated = existing_item.clone();
+                    updated.scope = scope;
+                    updated.external_id = external_id;
                     updated.title = title;
                     updated.body = parsed.body;
                     updated.frontmatter = parsed.raw_frontmatter;
@@ -545,13 +618,20 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
                     updated.created_date = created_date;
                     updated.started_date = started_date;
                     updated.completed_date = completed_date;
-                    items::update(pool, &updated).await?;
-                    report.updated += 1;
+                    match items::update(pool, &updated).await {
+                        Ok(_) => { report.updated += 1; }
+                        Err(AppError::Database(ref e)) if e.to_string().contains("UNIQUE constraint") => {
+                            report.errors.push(format!(
+                                "{}: external_id '{}' conflicts with another item — fix duplicate ids",
+                                tf.rel_path, &updated.external_id
+                            ));
+                        }
+                        Err(e) => { return Err(e); }
+                    }
                 }
             }
             None => {
                 let type_name = &tf.template_name;
-                let scope = derive_scope(&tf.rel_path, &template.dir);
                 let item = items::Item {
                     id: Uuid::new_v4().to_string(),
                     repo_id: repo_id.to_string(),
@@ -579,10 +659,29 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
                 match items::insert(pool, &item).await {
                     Ok(_) => { report.added += 1; }
                     Err(AppError::Database(ref e)) if e.to_string().contains("UNIQUE constraint") => {
-                        report.errors.push(format!(
-                            "{}: duplicate external_id '{}' — assign a unique id in the file",
-                            tf.rel_path, &item.external_id
-                        ));
+                        // Auto-repair: patch the file with a unique hash-based ID and retry.
+                        match patch_id_in_file(&tf.abs_path, &item.external_id, &template.id_prefix) {
+                            Some((new_id, new_hash)) => {
+                                let mut repaired = item;
+                                repaired.external_id = new_id;
+                                repaired.file_hash = new_hash;
+                                match items::insert(pool, &repaired).await {
+                                    Ok(_) => { report.added += 1; }
+                                    Err(_) => {
+                                        report.errors.push(format!(
+                                            "{}: auto-repair failed — assign a unique id manually",
+                                            tf.rel_path
+                                        ));
+                                    }
+                                }
+                            }
+                            None => {
+                                report.errors.push(format!(
+                                    "{}: duplicate external_id '{}' — assign a unique id in the file",
+                                    tf.rel_path, &item.external_id
+                                ));
+                            }
+                        }
                     }
                     Err(e) => { return Err(e); }
                 }
@@ -601,4 +700,47 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
     repos::set_last_scan(pool, repo_id).await?;
 
     Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scope_root_file() {
+        assert_eq!(derive_scope("roadmaps/feat-a.md", "roadmaps"), "");
+    }
+
+    #[test]
+    fn scope_subfolder() {
+        assert_eq!(derive_scope("roadmaps/frontend/feat-a.md", "roadmaps"), "frontend");
+    }
+
+    #[test]
+    fn scope_monorepo_root() {
+        assert_eq!(derive_scope("packages/web/roadmaps/feat.md", "roadmaps"), "packages/web");
+    }
+
+    #[test]
+    fn scope_monorepo_subfolder() {
+        assert_eq!(
+            derive_scope("packages/web/roadmaps/frontend/feat.md", "roadmaps"),
+            "packages/web/frontend"
+        );
+    }
+
+    #[test]
+    fn scope_no_match() {
+        assert_eq!(derive_scope("docs/readme.md", "roadmaps"), "");
+    }
+
+    #[test]
+    fn scope_template_dir_at_root() {
+        assert_eq!(derive_scope("features/feat-a.md", "features"), "");
+    }
+
+    #[test]
+    fn scope_template_dir_at_root_with_subdir() {
+        assert_eq!(derive_scope("features/auth/feat-a.md", "features"), "auth");
+    }
 }
