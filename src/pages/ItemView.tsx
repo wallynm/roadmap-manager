@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   useItem, useItems, useUpdateItem, useStartItem, useCompleteItem,
-  useCancelItem, usePlanItem, useItemComments,
+  useCancelItem, usePlanItem,
   useAddDependency, useRemoveDependency,
   useAddRelation, useRemoveRelation,
 } from "@/hooks/useItems";
@@ -13,10 +13,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Textarea } from "@/components/ui/Input";
 import { STATUS_CONFIG, PRIORITY_CONFIG, parseLabels, parseDependsOn, parseRelatesTo, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import type { Item, ItemStatus, Priority } from "@/types";
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import type { Comment, Item, ItemStatus, Priority } from "@/types";
+import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Save, ChevronDown, X, Lock, Plus, Link2, PanelRightClose, PanelRightOpen, Copy, Check } from "lucide-react";
+import { ChevronRight, ChevronDown, X, Lock, Plus, Link2, PanelRightClose, PanelRightOpen, Copy, Check } from "lucide-react";
 
 const SIDEBAR_PREF_KEY = "item-sidebar-open";
 function getSidebarPref(): boolean {
@@ -33,6 +33,67 @@ function extractFirstHeading(markdown: string): string | null {
 
 function stripFirstHeading(markdown: string): string {
   return markdown.replace(/^#[^\n]*\n?/, "").trimStart();
+}
+
+// New format: "## comment: Author Name - YYYY-MM-DD HH:MM"
+const COMMENT_ENTRY_RE = /^## comment:\s*(.+?)\s*-\s*(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s*$/i;
+
+function findFirstCommentIdx(body: string): number {
+  // New format entries
+  const newIdx = body.search(/\n## comment:/i);
+  if (newIdx !== -1) {
+    return newIdx;
+  }
+  // Legacy format: ## Comments container
+  const legacyIdx = body.search(/\n## Comments\b/);
+  return legacyIdx;
+}
+
+function splitAtComments(body: string): [main: string, comments: string] {
+  const idx = findFirstCommentIdx(body);
+  if (idx === -1) {
+    return [body, ""];
+  }
+  return [body.slice(0, idx).trimEnd(), body.slice(idx)];
+}
+
+function extractCommentsSection(markdown: string): string {
+  return splitAtComments(markdown)[1];
+}
+
+function stripCommentsSection(markdown: string): string {
+  return splitAtComments(markdown)[0];
+}
+
+function parseComments(body: string): Comment[] {
+  const [, commentsRaw] = splitAtComments(body);
+  if (!commentsRaw) {
+    return [];
+  }
+  return commentsRaw
+    .split(/\n(?=## comment:)/i)
+    .map((chunk, i) => {
+      const lines = chunk.trim().split("\n");
+      const m = COMMENT_ENTRY_RE.exec(lines[0] ?? "");
+      if (!m) {
+        return null;
+      }
+      const author = m[1].trim();
+      const created_at = m[2].trim();
+      const commentBody = lines.slice(1).join("\n").trim();
+      if (!commentBody) {
+        return null;
+      }
+      return {
+        id: `parsed-${i}`,
+        item_id: "",
+        author,
+        is_agent: author.endsWith("(auto)") ? 1 : 0,
+        body: commentBody,
+        created_at,
+      } satisfies Comment;
+    })
+    .filter((c): c is Comment => c !== null);
 }
 
 function DepAutocomplete({
@@ -158,13 +219,13 @@ function FieldSelect<T extends string>({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 w-full px-2 py-1 rounded-md hover:bg-accent/50 transition-colors text-left group"
+        className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-accent/50 transition-colors group ml-auto"
       >
-        <span className="flex-1 min-w-0">{renderValue(value)}</span>
+        {renderValue(value)}
         <ChevronDown className="w-3 h-3 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground/70 transition-colors" />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 w-full min-w-[140px] bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
           {options.map((opt) => (
             <button
               key={opt}
@@ -185,16 +246,16 @@ function FieldSelect<T extends string>({
 
 function PropRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2 min-h-[28px]">
+    <div className="flex items-center min-h-[28px] px-2">
       <span className="text-xs text-muted-foreground/60 w-20 shrink-0">{label}</span>
-      <div className="flex-1 min-w-0">{children}</div>
+      <div className="flex-1 min-w-0 flex items-center justify-end">{children}</div>
     </div>
   );
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40 px-2 pt-3 pb-1">
+    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-2 pt-4 pb-1 border-t border-border/40 mt-2">
       {children}
     </p>
   );
@@ -204,8 +265,8 @@ export function ItemView() {
   const { repoId, itemId } = useParams<{ repoId: string; itemId: string }>();
   const navigate = useNavigate();
   const { data: item, isLoading } = useItem(itemId ?? null);
-  const { data: comments = [] } = useItemComments(itemId ?? null);
   const { data: allItems = [] } = useItems(repoId ?? null, undefined);
+  const comments = useMemo(() => parseComments(item?.body ?? ""), [item?.body]);
   const { data: repos } = useRepos();
   const repo = repos?.find((r) => r.id === repoId);
 
@@ -226,7 +287,42 @@ export function ItemView() {
   const [labelInput, setLabelInput] = useState("");
   const [depInput, setDepInput] = useState("");
   const [relInput, setRelInput] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const bodyRef = useRef("");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editTitleRef = useRef("");
+  const itemRef = useRef<Item | undefined>(undefined);
+  const updateMutateRef = useRef(updateItem.mutate);
+  const hasFirstBodyChangeRef = useRef(false);
+
+  editTitleRef.current = editTitle;
+  itemRef.current = item;
+  updateMutateRef.current = updateItem.mutate;
+
+  const doSave = useCallback(() => {
+    const currentItem = itemRef.current;
+    if (!currentItem) { return; }
+    const commentsSection = extractCommentsSection(currentItem.body ?? "");
+    const fullBody = `# ${editTitleRef.current}\n\n${bodyRef.current}${commentsSection}`;
+    setSaveStatus("saving");
+    updateMutateRef.current(
+      { id: currentItem.id, title: editTitleRef.current, body: fullBody },
+      {
+        onSuccess: () => {
+          setSaveStatus("saved");
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        },
+        onError: () => setSaveStatus("idle"),
+      }
+    );
+  }, []);
+
+  const scheduleAutoSave = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+    saveTimerRef.current = setTimeout(doSave, 2000);
+  }, [doSave]);
 
   const toggleSidebar = () => setSidebarOpen((v) => { setSidebarPref(!v); return !v; });
 
@@ -241,9 +337,10 @@ export function ItemView() {
 
   useEffect(() => {
     if (item) {
+      hasFirstBodyChangeRef.current = false;
       const titleFromBody = extractFirstHeading(item.body ?? "");
       setEditTitle(titleFromBody ?? item.title);
-      bodyRef.current = stripFirstHeading(item.body ?? "");
+      bodyRef.current = stripCommentsSection(stripFirstHeading(item.body ?? ""));
     }
   }, [item?.id]);
 
@@ -266,14 +363,6 @@ export function ItemView() {
   const labels = parseLabels(item.labels);
   const deps = parseDependsOn(item.depends_on);
   const relations = parseRelatesTo(item.relates_to);
-
-  const handleSave = () => {
-    const fullBody = `# ${editTitle}\n\n${bodyRef.current}`;
-    updateItem.mutate(
-      { id: item.id, title: editTitle, body: fullBody },
-      { onSuccess: () => toast.success(`${item.external_id} saved`) }
-    );
-  };
 
   const handleStatusChange = (status: ItemStatus) => {
     const isDone = item.status === "done" || item.status === "canceled";
@@ -345,6 +434,12 @@ export function ItemView() {
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-foreground truncate max-w-sm">{item.title}</span>
         </nav>
+        {saveStatus === "saving" && (
+          <span className="text-xs text-muted-foreground animate-pulse shrink-0">Saving…</span>
+        )}
+        {saveStatus === "saved" && (
+          <span className="text-xs text-green-500/70 shrink-0">Saved</span>
+        )}
         <button
           onClick={copyPath}
           className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
@@ -370,16 +465,23 @@ export function ItemView() {
         <div className="flex-1 min-w-0 overflow-y-auto space-y-6 px-0.5 pr-2">
           <input
             value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
+            onChange={(e) => { setEditTitle(e.target.value); scheduleAutoSave(); }}
             className="w-full bg-transparent text-2xl font-semibold focus:outline-none placeholder:text-muted-foreground border-b border-transparent hover:border-border focus:border-primary transition-colors pb-1"
             placeholder="Issue title"
           />
 
           <BlockNoteEditor
             key={item.id}
-            markdown={stripFirstHeading(item.body ?? "")}
+            markdown={stripCommentsSection(stripFirstHeading(item.body ?? ""))}
             editable
-            onChange={(md) => { bodyRef.current = md; }}
+            onChange={(md) => {
+              bodyRef.current = md;
+              if (!hasFirstBodyChangeRef.current) {
+                hasFirstBodyChangeRef.current = true;
+                return;
+              }
+              scheduleAutoSave();
+            }}
           />
 
           {showNoteInput && (
@@ -414,16 +516,6 @@ export function ItemView() {
           "shrink-0 overflow-y-auto transition-all duration-200",
           sidebarOpen ? "w-56 opacity-100" : "w-0 opacity-0 overflow-hidden pointer-events-none"
         )}>
-          <Button
-            variant="primary"
-            className="w-full mb-2"
-            loading={updateItem.isPending}
-            onClick={handleSave}
-          >
-            <Save className="w-3.5 h-3.5" />
-            Save changes
-          </Button>
-
           {/* Properties */}
           <SectionLabel>Properties</SectionLabel>
           <div className="space-y-0.5">
@@ -485,7 +577,7 @@ export function ItemView() {
             </PropRow>
 
             <PropRow label="Type">
-              <span className="text-xs text-muted-foreground px-2">{item.type}</span>
+              <span className="text-xs text-muted-foreground pr-2">{item.type}</span>
             </PropRow>
           </div>
 
@@ -586,17 +678,17 @@ export function ItemView() {
           <div className="space-y-0.5">
             {item.created_date && (
               <PropRow label="Created">
-                <span className="text-xs text-muted-foreground px-2">{formatDate(item.created_date)}</span>
+                <span className="text-xs text-muted-foreground pr-2">{formatDate(item.created_date)}</span>
               </PropRow>
             )}
             {item.started_date && (
               <PropRow label="Started">
-                <span className="text-xs text-muted-foreground px-2">{formatDate(item.started_date)}</span>
+                <span className="text-xs text-muted-foreground pr-2">{formatDate(item.started_date)}</span>
               </PropRow>
             )}
             {item.completed_date && (
               <PropRow label="Completed">
-                <span className="text-xs text-muted-foreground px-2">{formatDate(item.completed_date)}</span>
+                <span className="text-xs text-muted-foreground pr-2">{formatDate(item.completed_date)}</span>
               </PropRow>
             )}
           </div>

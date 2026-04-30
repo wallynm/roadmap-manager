@@ -4,7 +4,6 @@ import type {
 	ArchiveDryRun,
 	ArchiveReport,
 	CheckboxCount,
-	Comment,
 	DepAnalysis,
 	DiscoveredFolder,
 	FixReport,
@@ -107,8 +106,10 @@ export const api = {
 		invoke<Item>("remove_relation", { id, relatedId }),
 	addComment: (itemId: string, body: string, author?: string) =>
 		invoke<Item>("add_comment", { itemId, body, author }),
-	getItemComments: (itemId: string) =>
-		invoke<Comment[]>("get_item_comments", { itemId }),
+	editComment: (itemId: string, author: string, createdAt: string, newBody: string) =>
+		invoke<Item>("edit_comment", { itemId, author, createdAt, newBody }),
+	deleteComment: (itemId: string, author: string, createdAt: string) =>
+		invoke<Item>("delete_comment", { itemId, author, createdAt }),
 
 	getNotifications: () => invoke<Notification[]>("get_notifications"),
 	markNotificationRead: (id: string) =>

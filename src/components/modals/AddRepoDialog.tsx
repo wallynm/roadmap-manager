@@ -64,7 +64,8 @@ function buildRepoConfig(folders: FolderSelection[]): RepoConfig {
 			],
 			requiredFields: ["id", "title", "type", "status"],
 			defaults: { status: "⬜ pendente" },
-			bodyTemplate: "# {ID} — {TITLE}\n\nTODO\n",
+			bodyTemplate:
+				"## Context\n\nWhy this work matters and what problem it solves.\n\n## Spec\n\nWhat exactly needs to be built or changed.\n\n## Acceptance criteria\n\n- [ ] \n\n## Key learnings\n\n",
 		};
 	}
 

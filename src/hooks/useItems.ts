@@ -263,23 +263,39 @@ export function useRemoveRelation() {
   });
 }
 
-export function useItemComments(itemId: string | null) {
-  return useQuery({
-    queryKey: ["comments", itemId],
-    queryFn: () => api.getItemComments(itemId!),
-    enabled: !!itemId,
-  });
-}
 
 export function useAddComment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ itemId, body }: { itemId: string; body: string }) =>
       api.addComment(itemId, body),
-    onSuccess: (_d, { itemId }) => {
+    onSuccess: (updatedItem, { itemId }) => {
+      qc.setQueryData(["item", itemId], updatedItem);
       qc.invalidateQueries({ queryKey: ["items"] });
-      qc.invalidateQueries({ queryKey: ["item", itemId] });
-      qc.invalidateQueries({ queryKey: ["comments"] });
+    },
+  });
+}
+
+export function useEditComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, author, createdAt, newBody }: { itemId: string; author: string; createdAt: string; newBody: string }) =>
+      api.editComment(itemId, author, createdAt, newBody),
+    onSuccess: (updatedItem, { itemId }) => {
+      qc.setQueryData(["item", itemId], updatedItem);
+      qc.invalidateQueries({ queryKey: ["items"] });
+    },
+  });
+}
+
+export function useDeleteComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, author, createdAt }: { itemId: string; author: string; createdAt: string }) =>
+      api.deleteComment(itemId, author, createdAt),
+    onSuccess: (updatedItem, { itemId }) => {
+      qc.setQueryData(["item", itemId], updatedItem);
+      qc.invalidateQueries({ queryKey: ["items"] });
     },
   });
 }

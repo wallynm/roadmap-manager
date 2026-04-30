@@ -695,36 +695,41 @@ pub async fn remove_relation(
     Ok(updated)
 }
 
+fn find_comment_block(body: &str, author: &str, created_at: &str) -> Option<(usize, usize)> {
+    let needle = format!("\n## comment: {} - {}", author, created_at);
+    let lower_body = body.to_lowercase();
+    let lower_needle = needle.to_lowercase();
+
+    let block_start = lower_body.find(&lower_needle)?;
+
+    // Find the next comment block after this one
+    let search_from = block_start + 1;
+    let next_comment_needle = "\n## comment:";
+    let lower_after = &lower_body[search_from..];
+    let block_end = lower_after
+        .find(next_comment_needle)
+        .map(|offset| search_from + offset)
+        .unwrap_or(body.len());
+
+    Some((block_start, block_end))
+}
+
 #[tauri::command]
-pub async fn add_comment(
+pub async fn delete_comment(
     pool: State<'_, SqlitePool>,
     item_id: String,
-    body: String,
-    author: Option<String>,
+    author: String,
+    created_at: String,
 ) -> Result<items::Item, String> {
     let mut item = items::get(&pool, &item_id)
         .await
         .map_err(|e| e.to_string())?;
-    let author_name = author.unwrap_or_else(|| "wally".to_string());
-    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string();
 
-    let comment_id = Uuid::new_v4().to_string();
-    sqlx::query(
-        "INSERT INTO comments (id, item_id, author, is_agent, body) VALUES (?, ?, ?, 0, ?)",
-    )
-    .bind(&comment_id)
-    .bind(&item_id)
-    .bind(&author_name)
-    .bind(&body)
-    .execute(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let (start, end) = find_comment_block(&item.body, &author, &created_at)
+        .ok_or_else(|| format!("Comment by '{}' at '{}' not found", author, created_at))?;
 
-    let comments_section = format!("\n### {} — {}\n{}\n", now, author_name, body);
-    if !item.body.contains("## Comments") {
-        item.body.push_str("\n\n## Comments\n");
-    }
-    item.body.push_str(&comments_section);
+    let new_body = format!("{}{}", item.body[..start].trim_end(), &item.body[end..]);
+    item.body = new_body;
 
     let repo = repos::get(&pool, &item.repo_id)
         .await
@@ -746,25 +751,110 @@ pub async fn add_comment(
         .await
         .map_err(|e| e.to_string())?;
 
-    vcs::auto_commit(&repo, &abs_path, &updated, "commented", None)
+    vcs::auto_commit(&repo, &abs_path, &updated, "comment deleted", None)
         .map_err(|e| format!("auto-commit failed: {}", e))?;
 
     Ok(updated)
 }
 
 #[tauri::command]
-pub async fn get_item_comments(
+pub async fn edit_comment(
     pool: State<'_, SqlitePool>,
     item_id: String,
-) -> Result<Vec<Comment>, String> {
-    let comments = sqlx::query_as::<_, Comment>(
-        "SELECT * FROM comments WHERE item_id = ? ORDER BY created_at ASC",
-    )
-    .bind(&item_id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(comments)
+    author: String,
+    created_at: String,
+    new_body: String,
+) -> Result<items::Item, String> {
+    let mut item = items::get(&pool, &item_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let (start, end) = find_comment_block(&item.body, &author, &created_at)
+        .ok_or_else(|| format!("Comment by '{}' at '{}' not found", author, created_at))?;
+
+    let header = format!("\n## comment: {} - {}", author, created_at);
+    let updated_body = format!(
+        "{}{}\n\n{}\n{}",
+        &item.body[..start],
+        header,
+        new_body,
+        &item.body[end..]
+    );
+    item.body = updated_body;
+
+    let repo = repos::get(&pool, &item.repo_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let config: RepoConfig =
+        serde_json::from_str(&repo.config).map_err(|e| e.to_string())?;
+    let template = config.templates.get(&item.item_type).ok_or("Unknown type")?;
+
+    let content = writer::render(&item, template);
+    item.file_hash = writer::compute_hash(&content);
+    item.frontmatter = content.split("---").nth(1).unwrap_or_default().trim().to_string();
+
+    let abs_path = PathBuf::from(&repo.path).join(&item.file_path);
+    writer::write_atomic(&abs_path, &content)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let updated = items::update(&pool, &item)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    vcs::auto_commit(&repo, &abs_path, &updated, "comment edited", None)
+        .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn add_comment(
+    pool: State<'_, SqlitePool>,
+    item_id: String,
+    body: String,
+    author: Option<String>,
+) -> Result<items::Item, String> {
+    let mut item = items::get(&pool, &item_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let repo = repos::get(&pool, &item.repo_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let author_name = author.unwrap_or_else(|| {
+        git2::Repository::open(&repo.path)
+            .ok()
+            .and_then(|r| r.config().ok())
+            .and_then(|c| c.get_string("user.name").ok())
+            .unwrap_or_else(|| "unknown".to_string())
+    });
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string();
+
+    item.body.push_str(&format!("\n\n## comment: {} - {}\n\n{}\n", author_name, now, body));
+
+    let config: RepoConfig =
+        serde_json::from_str(&repo.config).map_err(|e| e.to_string())?;
+    let template = config.templates.get(&item.item_type).ok_or("Unknown type")?;
+
+    let content = writer::render(&item, template);
+    item.file_hash = writer::compute_hash(&content);
+    item.frontmatter = content.split("---").nth(1).unwrap_or_default().trim().to_string();
+
+    let abs_path = PathBuf::from(&repo.path).join(&item.file_path);
+    writer::write_atomic(&abs_path, &content)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let updated = items::update(&pool, &item)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    vcs::auto_commit(&repo, &abs_path, &updated, "commented", None)
+        .map_err(|e| format!("auto-commit failed: {}", e))?;
+
+    Ok(updated)
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, sqlx::FromRow)]

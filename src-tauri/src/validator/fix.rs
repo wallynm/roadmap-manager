@@ -28,6 +28,7 @@ pub fn fix_issues(
 
     let template_files = walk_template_files(repo_path, config);
     fix_duplicate_ids(repo_path, config, &template_files, &mut report);
+    migrate_area_to_labels(config, &template_files, &mut report);
 
     for issue in issues {
         let template = match config.templates.get(&issue.template) {
@@ -210,6 +211,84 @@ fn fix_duplicate_ids(
             }
         } else {
             seen.insert(key, tf.rel_path.clone());
+        }
+    }
+}
+
+/// Finds any file that has an `area:` frontmatter field and migrates it to `labels:`,
+/// merging with existing labels and removing the `area:` key.
+fn migrate_area_to_labels(
+    config: &RepoConfig,
+    template_files: &[crate::scanner::TemplateFile],
+    report: &mut FixReport,
+) {
+    for tf in template_files {
+        let template = match config.templates.get(&tf.template_name) {
+            Some(t) => t,
+            None => continue,
+        };
+
+        let raw = match std::fs::read_to_string(&tf.abs_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let parsed = match parser::parse(&raw) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+
+        let mapping = match parsed.yaml.as_mapping() {
+            Some(m) => m,
+            None => continue,
+        };
+
+        let area_key = serde_yaml::Value::String("area".to_string());
+        let area_str = match mapping.get(&area_key).and_then(|v| v.as_str()) {
+            Some(s) if !s.is_empty() => s.to_string(),
+            _ => continue,
+        };
+
+        let labels_key = serde_yaml::Value::String("labels".to_string());
+        let mut labels: Vec<String> = match mapping.get(&labels_key) {
+            Some(serde_yaml::Value::Sequence(seq)) => seq
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+            Some(serde_yaml::Value::String(s)) => {
+                let trimmed = s.trim_matches(|c| c == '[' || c == ']');
+                if trimmed.is_empty() {
+                    vec![]
+                } else {
+                    trimmed.split(',').map(|p| p.trim().to_string()).collect()
+                }
+            }
+            _ => vec![],
+        };
+
+        if !labels.contains(&area_str) {
+            labels.push(area_str);
+        }
+
+        let mut new_yaml = parsed.yaml.clone();
+        if let Some(m) = new_yaml.as_mapping_mut() {
+            m.remove(&area_key);
+            m.insert(
+                labels_key,
+                serde_yaml::Value::Sequence(
+                    labels.iter().map(|l| serde_yaml::Value::String(l.clone())).collect(),
+                ),
+            );
+        }
+
+        let new_fm = render_yaml_frontmatter(&new_yaml, &template.frontmatter_fields);
+        let new_content = format!("---\n{}\n---\n\n{}\n", new_fm, parsed.body.trim_end());
+
+        if std::fs::write(&tf.abs_path, &new_content).is_ok() {
+            report.fixed += 1;
+            report.files.push(tf.rel_path.clone());
+        } else {
+            report.skipped += 1;
         }
     }
 }

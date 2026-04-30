@@ -1,0 +1,128 @@
+{
+  "templates": {
+    "adr": {
+      "dir": "docs/adr",
+      "filePrefix": "adr",
+      "idPrefix": "ADR",
+      "idPadding": 2,
+      "frontmatterFields": [
+        "id",
+        "title",
+        "type",
+        "status",
+        "priority",
+        "labels",
+        "created-date",
+        "depends-on"
+      ],
+      "requiredFields": [
+        "id",
+        "title",
+        "type",
+        "status"
+      ],
+      "defaults": {
+        "status": "⬜ pendente"
+      },
+      "bodyTemplate": "## Context\n\nWhy this work matters and what problem it solves.\n\n## Spec\n\nWhat exactly needs to be built or changed.\n\n## Acceptance criteria\n\n- [ ] \n\n## Key learnings\n\n"
+    },
+    "validation": {
+      "dir": "docs/validation",
+      "filePrefix": "val",
+      "idPrefix": "VAL",
+      "idPadding": 2,
+      "frontmatterFields": [
+        "id",
+        "title",
+        "type",
+        "status",
+        "priority",
+        "labels",
+        "created-date",
+        "depends-on"
+      ],
+      "requiredFields": [
+        "id",
+        "title",
+        "type",
+        "status"
+      ],
+      "defaults": {
+        "status": "⬜ pendente"
+      },
+      "bodyTemplate": "## Context\n\nWhy this work matters and what problem it solves.\n\n## Spec\n\nWhat exactly needs to be built or changed.\n\n## Acceptance criteria\n\n- [ ] \n\n## Key learnings\n\n"
+    },
+    "phase": {
+      "dir": "docs/phases",
+      "filePrefix": "pha",
+      "idPrefix": "PHA",
+      "idPadding": 2,
+      "frontmatterFields": [
+        "id",
+        "title",
+        "type",
+        "status",
+        "priority",
+        "labels",
+        "created-date",
+        "depends-on"
+      ],
+      "requiredFields": [
+        "id",
+        "title",
+        "type",
+        "status"
+      ],
+      "defaults": {
+        "status": "⬜ pendente"
+      },
+      "bodyTemplate": "## Context\n\nWhy this work matters and what problem it solves.\n\n## Spec\n\nWhat exactly needs to be built or changed.\n\n## Acceptance criteria\n\n- [ ] \n\n## Key learnings\n\n"
+    },
+    "architecture": {
+      "dir": "docs/architecture",
+      "filePrefix": "arc",
+      "idPrefix": "ARC",
+      "idPadding": 2,
+      "frontmatterFields": [
+        "id",
+        "title",
+        "type",
+        "status",
+        "priority",
+        "labels",
+        "created-date",
+        "depends-on"
+      ],
+      "requiredFields": [
+        "id",
+        "title",
+        "type",
+        "status"
+      ],
+      "defaults": {
+        "status": "⬜ pendente"
+      },
+      "bodyTemplate": "## Context\n\nWhy this work matters and what problem it solves.\n\n## Spec\n\nWhat exactly needs to be built or changed.\n\n## Acceptance criteria\n\n- [ ] \n\n## Key learnings\n\n"
+    }
+  },
+  "labels": {
+    "whitelist": [],
+    "allowFreeForm": true,
+    "colors": {}
+  },
+  "autoCommit": {
+    "enabled": true,
+    "branch": null,
+    "messageFormat": "chore(roadmap): {ID} → {STATUS_VERB}",
+    "includeNoteInBody": true,
+    "addReferenceLine": true,
+    "skipIfDirty": false
+  },
+  "branchPolicy": {
+    "allowedBranches": null,
+    "warnIfDetached": true
+  },
+  "roadmap": {
+    "preservedSections": []
+  }
+}

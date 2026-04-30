@@ -8,7 +8,8 @@ import {
 	Trash2,
 	X,
 } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { BlockNoteViewRaw, useCreateBlockNote } from "@blocknote/react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
@@ -504,7 +505,82 @@ function patchTemplates(
 	}
 }
 
+// ── Body template editor ────────────────────────────────────────────────────
+
+const bnThemeVars: React.CSSProperties = {
+	["--bn-colors-editor-background" as string]: "hsl(240, 15%, 14%)",
+	["--bn-colors-editor-text" as string]: "hsl(240, 10%, 90%)",
+	["--bn-colors-menu-background" as string]: "hsl(240, 16%, 17%)",
+	["--bn-colors-menu-text" as string]: "hsl(240, 10%, 90%)",
+	["--bn-colors-tooltip-background" as string]: "hsl(240, 15%, 19%)",
+	["--bn-colors-tooltip-text" as string]: "hsl(240, 10%, 90%)",
+	["--bn-colors-hovered-background" as string]: "hsl(240, 15%, 19%)",
+	["--bn-colors-hovered-text" as string]: "hsl(240, 10%, 90%)",
+	["--bn-colors-selected-background" as string]: "hsl(244, 76%, 65%, 0.18)",
+	["--bn-colors-selected-text" as string]: "hsl(240, 10%, 90%)",
+	["--bn-colors-disabled-background" as string]: "hsl(240, 18%, 11%)",
+	["--bn-colors-disabled-text" as string]: "hsl(240, 8%, 42%)",
+	["--bn-colors-border" as string]: "hsl(240, 13%, 22%)",
+	["--bn-colors-shadow" as string]: "transparent",
+	["--bn-colors-side-menu" as string]: "hsl(240, 8%, 40%)",
+	["--bn-border-radius" as string]: "6px",
+};
+
+function BodyTemplateEditor({
+	initialValue,
+	onChange,
+}: {
+	initialValue: string;
+	onChange: (md: string) => void;
+}) {
+	const editor = useCreateBlockNote();
+	const onChangeRef = useRef(onChange);
+	onChangeRef.current = onChange;
+
+	useEffect(() => {
+		(async () => {
+			const blocks = await editor.tryParseMarkdownToBlocks(initialValue);
+			editor.replaceBlocks(editor.document, blocks);
+		})();
+		// intentionally runs once on mount; editor is stable
+		// biome-ignore lint/correctness/useExhaustiveDependencies: init once
+	}, []);
+
+	useEffect(() => {
+		return editor.onChange(() => {
+			const md = editor.blocksToMarkdownLossy(editor.document);
+			onChangeRef.current(md);
+		});
+	}, [editor]);
+
+	return (
+		<div
+			style={bnThemeVars}
+			className="rounded-lg overflow-hidden border border-border"
+		>
+			<BlockNoteViewRaw
+				editor={editor}
+				editable
+				theme="dark"
+				className="[&_.bn-editor]:min-h-[140px] [&_.bn-editor]:px-0 [&_.bn-editor]:py-2"
+			/>
+		</div>
+	);
+}
+
 // ── Folders section ──────────────────────────────────────────────────────────
+
+const RICH_BODY_TEMPLATE =
+	"## Context\n\nWhy this work matters and what problem it solves.\n\n## Spec\n\nWhat exactly needs to be built or changed.\n\n## Acceptance criteria\n\n- [ ] \n\n## Key learnings\n\n";
+
+const LEGACY_BODY_TEMPLATE = "# {ID} — {TITLE}\n\nTODO\n";
+
+function effectiveBodyTemplate(stored: string | undefined): string {
+	if (!stored || stored === LEGACY_BODY_TEMPLATE) {
+		return RICH_BODY_TEMPLATE;
+	}
+	return stored;
+}
 
 interface NewFolderForm {
 	dir: string;
@@ -520,6 +596,8 @@ function FoldersSection({ repo }: { repo: Repo }) {
 		() => ({ ...config.templates }),
 	);
 	const [form, setForm] = useState<NewFolderForm>(EMPTY_FORM);
+	const [expandedKey, setExpandedKey] = useState<string | null>(null);
+	const [resetCounters, setResetCounters] = useState<Record<string, number>>({});
 	const [saving, setSaving] = useState(false);
 	const updateRepo = useUpdateRepo();
 	const rescanRepo = useRescanRepo();
@@ -536,6 +614,16 @@ function FoldersSection({ repo }: { repo: Repo }) {
 			delete next[key];
 			return next;
 		});
+		if (expandedKey === key) {
+			setExpandedKey(null);
+		}
+	};
+
+	const handleBodyTemplateChange = (key: string, value: string) => {
+		setTemplates((prev) => ({
+			...prev,
+			[key]: { ...prev[key], bodyTemplate: value },
+		}));
 	};
 
 	const handleAdd = () => {
@@ -566,7 +654,7 @@ function FoldersSection({ repo }: { repo: Repo }) {
 				],
 				requiredFields: ["id", "title", "type", "status"],
 				defaults: { status: "⬜ pendente" },
-				bodyTemplate: "# {ID} — {TITLE}\n\nTODO\n",
+				bodyTemplate: RICH_BODY_TEMPLATE,
 			},
 		}));
 		setForm(EMPTY_FORM);
@@ -621,26 +709,72 @@ function FoldersSection({ repo }: { repo: Repo }) {
 			) : (
 				<div className="rounded-lg border border-border divide-y divide-border">
 					{Object.entries(templates).map(([key, t]) => (
-						<div key={key} className="flex items-center gap-3 px-3 py-2.5">
-							<Folder className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
-							<div className="flex-1 min-w-0">
-								<div className="flex items-center gap-2">
-									<span className="text-xs font-medium">{key}</span>
-									<span className="text-[10px] font-mono text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
-										{t.idPrefix}
+						<div key={key}>
+							<div className="flex items-center gap-3 px-3 py-2.5">
+								<Folder className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
+								<div className="flex-1 min-w-0">
+									<div className="flex items-center gap-2">
+										<span className="text-xs font-medium">{key}</span>
+										<span className="text-[10px] font-mono text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
+											{t.idPrefix}
+										</span>
+									</div>
+									<span className="text-[10px] font-mono text-muted-foreground truncate block">
+										{t.dir}
 									</span>
 								</div>
-								<span className="text-[10px] font-mono text-muted-foreground truncate block">
-									{t.dir}
-								</span>
+								<button
+									type="button"
+									onClick={() =>
+										setExpandedKey(expandedKey === key ? null : key)
+									}
+									className="text-muted-foreground/40 hover:text-foreground transition-colors"
+									title="Edit body template"
+								>
+									{expandedKey === key ? (
+										<ChevronUp className="w-3.5 h-3.5" />
+									) : (
+										<ChevronDown className="w-3.5 h-3.5" />
+									)}
+								</button>
+								<button
+									type="button"
+									onClick={() => handleRemove(key)}
+									className="text-muted-foreground/40 hover:text-destructive transition-colors"
+								>
+									<X className="w-3.5 h-3.5" />
+								</button>
 							</div>
-							<button
-								type="button"
-								onClick={() => handleRemove(key)}
-								className="text-muted-foreground/40 hover:text-destructive transition-colors"
-							>
-								<X className="w-3.5 h-3.5" />
-							</button>
+							{expandedKey === key && (
+								<div className="px-3 pb-3 space-y-1.5 border-t border-border/50 pt-2">
+									<div className="flex items-center justify-between">
+										<p className="text-[10px] text-muted-foreground/70">
+											Body template — use{" "}
+											<span className="font-mono">{"{ID}"}</span> and{" "}
+											<span className="font-mono">{"{TITLE}"}</span> as
+											placeholders
+										</p>
+										<button
+											type="button"
+											onClick={() => {
+												handleBodyTemplateChange(key, RICH_BODY_TEMPLATE);
+												setResetCounters((prev) => ({
+													...prev,
+													[key]: (prev[key] ?? 0) + 1,
+												}));
+											}}
+											className="text-[10px] text-muted-foreground/50 hover:text-primary transition-colors"
+										>
+											Reset to default
+										</button>
+									</div>
+									<BodyTemplateEditor
+										key={`${key}-${resetCounters[key] ?? 0}`}
+										initialValue={effectiveBodyTemplate(t.bodyTemplate)}
+										onChange={(md) => handleBodyTemplateChange(key, md)}
+									/>
+								</div>
+							)}
 						</div>
 					))}
 				</div>

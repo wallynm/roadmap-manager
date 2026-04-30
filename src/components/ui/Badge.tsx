@@ -5,7 +5,7 @@ export const badgeVariants = tv({
   base: "inline-flex items-center gap-1 font-medium shrink-0",
   variants: {
     variant: {
-      default: "bg-secondary text-muted-foreground",
+      default: "bg-white/10 text-foreground/70",
       primary: "bg-primary/15 text-primary",
       amber:   "bg-amber-500/15 text-amber-400",
       red:     "bg-red-500/15 text-red-400",
