@@ -194,7 +194,7 @@ export function NextView() {
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <div className="flex items-center gap-2">
-        <Zap className="w-4 h-4 text-muted-foreground" />
+        <Zap className="w-4 h-4 fill-amber-400 text-amber-400" />
         <h1 className="text-sm font-semibold">Next Up</h1>
         <span className="text-xs text-muted-foreground/50">
           {ready.length} ready · {blocked.length} blocked

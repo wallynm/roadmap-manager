@@ -149,7 +149,7 @@ function ActiveRepoNav({
   return (
     <div className="mt-1 space-y-0.5">
       <NavItem
-        icon={<Zap className="w-3.5 h-3.5" />}
+        icon={<Zap className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />}
         label="Next Up"
         active={nextActive}
         onClick={() => onNavigate(`/repos/${repoId}/next`)}
