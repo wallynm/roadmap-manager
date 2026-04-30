@@ -1,7 +1,7 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Zap, Lock, X, ChevronDown, Check } from "lucide-react";
-import { useNextItems } from "@/hooks/useNextItems";
+import { Zap, Lock, X, ChevronDown, Check, ArrowUpRight } from "lucide-react";
+import { useNextItems, type SortMode } from "@/hooks/useNextItems";
 import {
   PriorityNone, PriorityUrgent, PriorityHigh, PriorityMedium, PriorityLow,
 } from "@/components/ui/PriorityIcon";
@@ -167,7 +167,8 @@ export function NextView() {
   const { repoId } = useParams<{ repoId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const scored = useNextItems(repoId!);
+  const sortMode = (searchParams.get("sort") ?? "score") as SortMode;
+  const scored = useNextItems(repoId!, sortMode);
 
   const activeScope = searchParams.get("scope");
   const activeType = searchParams.get("type");
@@ -253,16 +254,35 @@ export function NextView() {
           </>
         )}
 
-        {hasFilters && (
+        <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setSearchParams({}, { replace: true })}
-            className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              if (sortMode === "impact") { next.delete("sort"); } else { next.set("sort", "impact"); }
+              setSearchParams(next, { replace: true });
+            }}
+            className={cn(
+              "flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border transition-colors",
+              sortMode === "impact"
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
           >
-            <X className="w-3 h-3" />
-            Clear filters
+            <ArrowUpRight className="w-3 h-3" />
+            Impacto primeiro
           </button>
-        )}
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={() => setSearchParams(sortMode === "impact" ? { sort: "impact" } : {}, { replace: true })}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Limpar filtros
+            </button>
+          )}
+        </div>
       </div>
 
       {filtered.length === 0 && (

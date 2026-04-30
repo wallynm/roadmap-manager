@@ -15,9 +15,12 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 const DONE_STATUSES = new Set(["done", "canceled", "duplicate"]);
 const ACTIONABLE_STATUSES = new Set(["todo", "backlog"]);
 
+export type SortMode = "score" | "impact";
+
 export interface ScoredItem {
   item: Item;
   score: number;
+  impactScore: number;
   unblocks: number;
   ready: boolean;
   blockedBy: string[];
@@ -26,7 +29,7 @@ export interface ScoredItem {
   matchedLabels: string[];
 }
 
-export function useNextItems(repoId: string): ScoredItem[] {
+export function useNextItems(repoId: string, sortMode: SortMode = "score"): ScoredItem[] {
   const { data: items } = useItems(repoId, undefined);
   const { data: impactData } = useImpactRankingCache(repoId);
   const { weights } = useLabelWeights(repoId);
@@ -80,11 +83,14 @@ export function useNextItems(repoId: string): ScoredItem[] {
         const ageDays = createdMs > 0 ? Math.floor((now - createdMs) / 86_400_000) : 0;
         const unblocks = impactMap.get(item.id) ?? 0;
 
-        const score = priorityWeight * labelMultiplier * scopeMultiplier * 1000 + unblocks * 10 + ageDays;
+        const weightedScore = priorityWeight * labelMultiplier * scopeMultiplier;
+        const score = weightedScore * 1000 + unblocks * 10 + ageDays;
+        const impactScore = unblocks * 1000 + weightedScore * 10 + ageDays;
 
         return {
           item,
           score,
+          impactScore,
           unblocks,
           ready: blockedBy.length === 0,
           blockedBy,
@@ -94,10 +100,9 @@ export function useNextItems(repoId: string): ScoredItem[] {
         };
       })
       .sort((a, b) => {
-        if (a.ready !== b.ready) {
-          return a.ready ? -1 : 1;
-        }
-        return b.score - a.score;
+        if (a.ready !== b.ready) { return a.ready ? -1 : 1; }
+        const key = sortMode === "impact" ? "impactScore" : "score";
+        return b[key] - a[key];
       });
-  }, [items, impactData, weights]);
+  }, [items, impactData, weights, sortMode]);
 }

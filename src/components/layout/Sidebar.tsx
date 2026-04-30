@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   ChevronDown, ChevronRight, Layers, LayoutList,
-  Plus, Search, Map, FileCheck, TrendingUp, Zap,
+  Plus, Search, Map, FileCheck, Zap,
 } from "lucide-react";
 import { useRepos } from "@/hooks/useRepos";
 import { useItems } from "@/hooks/useItems";
@@ -139,7 +139,6 @@ function ActiveRepoNav({
   const totalCount = openItems?.length ?? 0;
   const allActive = !activeScope && /^\/repos\/[^/]+$/.test(location.pathname);
   const roadmapActive = location.pathname === `/repos/${repoId}/roadmap`;
-  const impactActive = location.pathname === `/repos/${repoId}/impact`;
   const nextActive = location.pathname === `/repos/${repoId}/next`;
 
   useEffect(() => {
@@ -160,13 +159,6 @@ function ActiveRepoNav({
             </span>
           ) : undefined
         }
-      />
-
-      <NavItem
-        icon={<TrendingUp className="w-3.5 h-3.5" />}
-        label="Impact Ranking"
-        active={impactActive}
-        onClick={() => onNavigate(`/repos/${repoId}/impact`)}
       />
 
       <NavItem
