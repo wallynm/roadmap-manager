@@ -33,3 +33,6 @@ logs/
 # Test artifacts
 coverage/
 *.tmp
+
+# Claude Code local config
+.claude/
