@@ -230,6 +230,29 @@ export function NextView() {
         <span className="text-xs text-muted-foreground/50">
           {ready.length} ready · {blocked.length} blocked
         </span>
+
+        {(scopeOptions.length > 1 || allTypes.length > 1) && (
+          <>
+            <div className="w-px h-3.5 bg-border mx-1" />
+            {scopeOptions.length > 1 && (
+              <FilterPill
+                label="Scope"
+                options={scopeOptions}
+                active={activeScope}
+                onSelect={(v) => setFilter("scope", v)}
+              />
+            )}
+            {allTypes.length > 1 && (
+              <FilterPill
+                label="Type"
+                options={allTypes}
+                active={activeType}
+                onSelect={(v) => setFilter("type", v)}
+              />
+            )}
+          </>
+        )}
+
         {hasFilters && (
           <button
             type="button"
@@ -241,28 +264,6 @@ export function NextView() {
           </button>
         )}
       </div>
-
-      {/* Filters */}
-      {(scopeOptions.length > 1 || allTypes.length > 1) && (
-        <div className="flex items-center gap-2">
-          {scopeOptions.length > 1 && (
-            <FilterPill
-              label="Scope"
-              options={scopeOptions}
-              active={activeScope}
-              onSelect={(v) => setFilter("scope", v)}
-            />
-          )}
-          {allTypes.length > 1 && (
-            <FilterPill
-              label="Type"
-              options={allTypes}
-              active={activeType}
-              onSelect={(v) => setFilter("type", v)}
-            />
-          )}
-        </div>
-      )}
 
       {filtered.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-12">
