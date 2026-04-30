@@ -1,9 +1,9 @@
 ---
 id: PHASE-07
 title: Comments + labels + priority migration
-type: spec
-description: Implement ## Comments section round-trip, label management UI with colors and whitelist, run priority migration (3-tier → 5-tier pt-br) and area→labels migration on existing repos.
-status: 📋 planned
+type: phase
+status: 📋 backlog
+labels: []
 created-date: 2026-04-29
 depends-on: [PHASE-06]
 ---
@@ -145,3 +145,6 @@ src-tauri/src/ipc/migrations.rs  # migration commands
 - Migrations são idempotentes: re-rodar não faz nada (já normalized).
 - Agent's complete-trigger pode usar `add_comment` para deixar contexto detalhado
   antes de propor o note brief.
+
+### 2026-04-30 05:39 — Wallysson Nunes
+Eu acho que ja está funcionando!
