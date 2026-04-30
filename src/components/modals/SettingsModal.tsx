@@ -433,7 +433,7 @@ export function SettingsModal() {
               type="button"
               onClick={() => setSection(s.id)}
               className={cn(
-                "flex items-center w-full px-2 py-1.5 text-xs rounded-lg transition-colors text-left",
+                "flex items-center w-full px-2 py-1.5 text-xs rounded-lg transition-colors text-left mt-px first:mt-0",
                 section === s.id
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent",
