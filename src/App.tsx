@@ -7,7 +7,7 @@ import { InboxModal } from "@/components/inbox/InboxModal";
 import { RepoView } from "@/pages/RepoView";
 import { ItemView } from "@/pages/ItemView";
 import { NewItemView } from "@/pages/NewItemView";
-import { SettingsView } from "@/pages/SettingsView";
+import { SettingsModal } from "@/components/modals/SettingsModal";
 import { RoadmapView } from "@/pages/RoadmapView";
 import { ImpactView } from "@/pages/ImpactView";
 import { NextView } from "@/pages/NextView";
@@ -26,6 +26,7 @@ export default function App() {
       <PageHeaderProvider>
       <CommandPalette />
       <InboxModal />
+      <SettingsModal />
       <AppShell>
         <Routes>
           <Route path="/" element={<DefaultRedirect />} />
@@ -34,7 +35,7 @@ export default function App() {
           <Route path="/repos/:repoId/roadmap" element={<RoadmapView />} />
           <Route path="/repos/:repoId/impact" element={<ImpactView />} />
           <Route path="/repos/:repoId/validate" element={<ValidateView />} />
-          <Route path="/repos/:repoId/settings" element={<SettingsView />} />
+          <Route path="/repos/:repoId/settings" element={<></>} />
           <Route path="/repos/:repoId/items/new" element={<NewItemView />} />
           <Route path="/repos/:repoId/items/:itemId" element={<ItemView />} />
         </Routes>

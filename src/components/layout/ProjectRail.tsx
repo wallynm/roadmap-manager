@@ -7,6 +7,7 @@ import { AddRepoDialog } from "@/components/modals/AddRepoDialog";
 import { parseRepoDisplay } from "@/lib/tauri";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { openInbox } from "@/components/inbox/InboxModal";
+import { openSettings } from "@/components/modals/SettingsModal";
 
 const REPO_RE = /\/repos\/([^/]+)/;
 
@@ -145,17 +146,10 @@ export function ProjectRail() {
             isSettings ? "h-9" : "h-0"
           )}
         />
-        <Tooltip content="Settings">
+        <Tooltip content="Settings ⌘,">
           <button
-            onClick={() =>
-              navigate(activeRepoId ? `/repos/${activeRepoId}/settings` : "/")
-            }
-            className={cn(
-              "w-9 h-9 flex items-center justify-center transition-all duration-200",
-              isSettings
-                ? "rounded-[12px] bg-accent text-foreground"
-                : "rounded-full hover:rounded-[12px] text-muted-foreground hover:bg-accent hover:text-foreground"
-            )}
+            onClick={openSettings}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:rounded-[12px] text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-200"
           >
             <Settings className="w-4 h-4" />
           </button>
