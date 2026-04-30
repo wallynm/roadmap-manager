@@ -1,9 +1,9 @@
 ---
 id: PHASE-13
 title: Subfolder-as-Scope — subpastas dentro do template dir viram scopes naturais
-type: spec
-description: Hoje o scope de um item é o prefixo monorepo antes do template dir (ex. "packages/web"). Com esta phase, subpastas imediatas dentro do template dir também geram scopes (ex. "roadmaps/frontend/" vira scope "frontend"), e o scanner passa a varrer 1 nível de subpastas em vez de apenas o root do dir.
-status: 📋 todo
+type: phase
+status: ✅ resolvido
+labels: []
 created-date: 2026-04-30
 depends-on: []
 ---
@@ -242,3 +242,8 @@ scope como chave. Se um scope existente mudar de nome (ex.: `""` → `"frontend"
 para arquivos que foram movidos para subpasta), o peso precisará ser
 reconfigurado manualmente. Isso é aceitável — o move de arquivo é uma ação
 intencional do usuário.
+
+
+## Resolução (2026-04-30)
+
+Já implementado
