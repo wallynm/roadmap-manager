@@ -2,6 +2,7 @@ import { TrendingUp, RefreshCw } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useImpactRanking, useImpactRankingCache } from "@/hooks/useValidation";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
 
 export function ImpactView() {
   const { repoId } = useParams<{ repoId: string }>();
@@ -81,9 +82,7 @@ export function ImpactView() {
               </span>
               <span className="font-mono text-xs flex-1">{item.external_id}</span>
               {item.unblocks > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary shrink-0">
-                  unblocks {item.unblocks}
-                </span>
+                <Badge variant="primary" size="sm">unblocks {item.unblocks}</Badge>
               )}
             </button>
           ))}

@@ -97,6 +97,8 @@ pub fn run() {
             ipc::repos::regenerate_indexes,
             ipc::repos::get_checkbox_count,
             ipc::repos::get_sub_roadmaps,
+            ipc::repos::discover_md_folders,
+            ipc::repos::write_roadmap_json,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -3,6 +3,7 @@ import { useRepos } from "@/hooks/useRepos";
 import { useCreateItem } from "@/hooks/useItems";
 import { BlockNoteEditor } from "@/components/editor/BlockNoteEditor";
 import { Button } from "@/components/ui/Button";
+import { Input, Select } from "@/components/ui/Input";
 import { Section, PropRow } from "@/components/ui/SidebarSection";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
@@ -111,26 +112,26 @@ export function NewItemView() {
 
           <Section label="Properties">
             <PropRow label="Type">
-              <select
+              <Select
                 value={itemType}
                 onChange={(e) => setItemType(e.target.value as ItemType)}
-                className="bg-secondary border border-border rounded px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                size="xs"
               >
                 {TYPES.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
-              </select>
+              </Select>
             </PropRow>
             <PropRow label="Priority">
-              <select
+              <Select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as ItemPriority)}
-                className="bg-secondary border border-border rounded px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                size="xs"
               >
                 {PRIORITIES.map((p) => (
                   <option key={p} value={p}>{p}</option>
                 ))}
-              </select>
+              </Select>
             </PropRow>
           </Section>
 
@@ -150,7 +151,7 @@ export function NewItemView() {
                 </div>
               )}
               <div className="flex gap-1.5">
-                <input
+                <Input
                   value={labelInput}
                   onChange={(e) => setLabelInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -160,7 +161,8 @@ export function NewItemView() {
                     }
                   }}
                   placeholder="Add label…"
-                  className="flex-1 bg-secondary border border-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  size="xs"
+                  className="flex-1"
                 />
                 <Button variant="ghost" size="sm" onClick={addLabel}>
                   +

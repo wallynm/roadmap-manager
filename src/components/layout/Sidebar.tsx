@@ -8,6 +8,8 @@ import { useItems } from "@/hooks/useItems";
 import { useCheckboxCount, useSubRoadmaps } from "@/hooks/useValidation";
 import { useNextItems } from "@/hooks/useNextItems";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
+import { Kbd } from "@/components/ui/Kbd";
 import { useState, useEffect, type ReactNode } from "react";
 import { openCommandPalette } from "@/components/command/CommandPalette";
 
@@ -76,9 +78,9 @@ export function Sidebar() {
           >
             <Plus className="w-3 h-3 shrink-0" />
             <span className="flex-1 text-left">New item</span>
-            <kbd className="text-[10px] text-muted-foreground/50 border border-border/40 px-1 py-0.5 rounded leading-none">
+            <Kbd>
               ⌘N
-            </kbd>
+            </Kbd>
           </button>
         )}
 
@@ -154,9 +156,7 @@ function ActiveRepoNav({
         onClick={() => onNavigate(`/repos/${repoId}/next`)}
         end={
           readyCount > 0 ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary shrink-0 tabular-nums">
-              {readyCount}
-            </span>
+            <Badge variant="primary" className="tabular-nums">{readyCount}</Badge>
           ) : undefined
         }
       />
@@ -168,13 +168,13 @@ function ActiveRepoNav({
         onClick={() => onNavigate(`/repos/${repoId}/roadmap`)}
         end={
           checkboxes && checkboxes.pending > 0 ? (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 shrink-0"
+            <Badge
+              variant="amber"
               title={checkboxes.unchecked_items.slice(0, 5).map(c => `${c.heading}: ${c.text}`).join("\n")}
             >
-              <FileCheck className="w-2.5 h-2.5 inline mr-0.5" />
+              <FileCheck className="w-2.5 h-2.5" />
               {checkboxes.pending}
-            </span>
+            </Badge>
           ) : undefined
         }
       />

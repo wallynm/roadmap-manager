@@ -3,6 +3,7 @@ import { MessageSquare, Bot, User } from "lucide-react";
 import type { Comment } from "@/types";
 import { useAddComment } from "@/hooks/useItems";
 import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Input";
 import { toast } from "sonner";
 
 interface CommentListProps {
@@ -65,11 +66,12 @@ export function CommentList({ comments, itemId }: CommentListProps) {
 
       {showInput && (
         <div className="space-y-2">
-          <textarea
+          <Textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Write a comment..."
-            className="w-full bg-secondary/60 border border-border rounded-lg px-3 py-2.5 text-sm min-h-[72px] resize-none focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/50 transition-colors"
+            size="md"
+            className="w-full bg-secondary/60 min-h-[72px] resize-none focus:ring-2 focus:ring-primary/60 placeholder:text-muted-foreground/50"
             autoFocus
           />
           <div className="flex gap-2">

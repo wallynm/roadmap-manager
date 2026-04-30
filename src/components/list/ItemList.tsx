@@ -5,6 +5,7 @@ import { cn, STATUS_CONFIG, PRIORITY_CONFIG, formatDateShort, parseRelatesTo } f
 import { useCreateItem, useUpdateItem } from "@/hooks/useItems";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
 export type SortField = "default" | "priority" | "created_date" | "impact";
 export type SortDir = "asc" | "desc";
@@ -285,7 +286,7 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent/30 cursor-pointer transition-colors group"
+      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary/80 cursor-pointer transition-colors group"
     >
       <GripVertical className="w-3 h-3 text-muted-foreground/20 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
 
@@ -297,14 +298,12 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
       </div>
 
       <Icon className={cn("w-3.5 h-3.5 shrink-0", cfg.color)} />
-      <span className="text-sm text-foreground flex-1 truncate min-w-0">{item.title}</span>
+      <span className="text-xs text-foreground flex-1 truncate min-w-0">{item.title}</span>
 
       {labels.length > 0 && (
         <div className="flex items-center gap-1 shrink-0">
           {labels.slice(0, 2).map((l: string) => (
-            <span key={l} className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
-              {l}
-            </span>
+            <Badge key={l} square>{l}</Badge>
           ))}
           {labels.length > 2 && (
             <span className="text-[10px] text-muted-foreground">+{labels.length - 2}</span>
@@ -327,9 +326,7 @@ function ItemRow({ item, onClick, unblocks }: { item: Item; onClick: () => void;
       )}
 
       {unblocks != null && unblocks > 0 && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary shrink-0 font-medium">
-          unblocks {unblocks}
-        </span>
+        <Badge variant="primary">unblocks {unblocks}</Badge>
       )}
 
       <span className="text-[11px] text-muted-foreground/60 w-14 text-right shrink-0">

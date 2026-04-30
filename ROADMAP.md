@@ -27,5 +27,5 @@ generated: 2026-04-29
 |---|---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 | 0 |
 
-_Gerado em 2026-04-29 · 0 duplicados omitidos · caminhos relativos à raiz_
+_Gerado em 2026-04-30 · 0 duplicados omitidos · caminhos relativos à raiz_
 

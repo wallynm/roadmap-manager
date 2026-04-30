@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 import { Bell, Check, Eye, X } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import { ModalOverlay, ModalPanel } from "@/components/ui/Modal";
 
 let _openInbox: (() => void) | null = null;
 
@@ -65,23 +67,15 @@ export function InboxModal() {
   const visible = tab === "unread" ? notifications.filter((n) => n.read === 0) : notifications;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm"
-      onClick={() => setOpen(false)}
-    >
-      <div
-        className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalOverlay align="top" layer="above" className="pt-[15vh]" onClose={() => setOpen(false)}>
+      <ModalPanel className="w-full max-w-md overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-medium">Inbox</span>
             {unreadCount > 0 && (
-              <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                {unreadCount}
-              </span>
+              <Badge variant="primary">{unreadCount}</Badge>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -174,7 +168,7 @@ export function InboxModal() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 }

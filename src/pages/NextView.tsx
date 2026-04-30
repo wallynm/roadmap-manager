@@ -6,6 +6,7 @@ import {
   PriorityNone, PriorityUrgent, PriorityHigh, PriorityMedium, PriorityLow,
 } from "@/components/ui/PriorityIcon";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
 import type { Priority } from "@/types";
 import type { ScoredItem } from "@/hooks/useNextItems";
 
@@ -104,7 +105,7 @@ function FilterPill({
   );
 }
 
-function ItemRow({ s, rank, onClick }: { s: ScoredItem; rank: number; onClick: () => void }) {
+function ItemRow({ s, rank, onClick, impactMode }: { s: ScoredItem; rank: number; onClick: () => void; impactMode: boolean }) {
   return (
     <button
       type="button"
@@ -123,14 +124,17 @@ function ItemRow({ s, rank, onClick }: { s: ScoredItem; rank: number; onClick: (
       <span className="flex-1 truncate text-xs">{s.item.title}</span>
       <div className="flex items-center gap-1 shrink-0">
         {s.labelMultiplier > 1 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 tabular-nums">
+          <Badge variant="amber" className="tabular-nums">
             ×{Number.isInteger(s.labelMultiplier) ? s.labelMultiplier : s.labelMultiplier.toFixed(1)}
-          </span>
+          </Badge>
         )}
-        {s.unblocks > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary tabular-nums">
+        {(s.unblocks > 0 || impactMode) && (
+          <Badge
+            variant={s.unblocks > 0 ? "primary" : "default"}
+            className={cn("tabular-nums", s.unblocks === 0 && "opacity-40")}
+          >
             ↑{s.unblocks}
-          </span>
+          </Badge>
         )}
       </div>
     </button>
@@ -156,9 +160,7 @@ function BlockedRow({ s, rank, onClick }: { s: ScoredItem; rank: number; onClick
         {s.item.external_id}
       </span>
       <span className="flex-1 truncate text-xs">{s.item.title}</span>
-      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground shrink-0">
-        blocked by {preview}{overflow}
-      </span>
+      <Badge>blocked by {preview}{overflow}</Badge>
     </button>
   );
 }
@@ -214,6 +216,8 @@ export function NextView() {
   const ready = filtered.filter((s) => s.ready);
   const blocked = filtered.filter((s) => !s.ready);
   const hasFilters = activeScope !== null || activeType !== null;
+  const impactMode = sortMode === "impact";
+  const allZeroUnblocks = impactMode && scored.every((s) => s.unblocks === 0);
 
   if (scored.length === 0) {
     return (
@@ -285,6 +289,12 @@ export function NextView() {
         </div>
       </div>
 
+      {allZeroUnblocks && (
+        <p className="text-xs text-muted-foreground/50 text-center py-1">
+          Nenhum item tem dependentes — adicione <code className="font-mono">depends-on:</code> no frontmatter para ver o ranking de impacto.
+        </p>
+      )}
+
       {filtered.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-12">
           No items match the current filters.
@@ -302,6 +312,7 @@ export function NextView() {
               <ItemRow
                 s={s}
                 rank={i + 1}
+                impactMode={impactMode}
                 onClick={() => navigate(`/repos/${repoId}/items/${s.item.id}`)}
               />
             </div>

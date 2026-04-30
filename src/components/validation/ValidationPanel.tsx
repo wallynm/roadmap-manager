@@ -14,6 +14,7 @@ import type {
   ArchiveDryRun,
 } from "@/types";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -83,9 +84,7 @@ function IssueRow({
         )}
         <FileText className="w-3.5 h-3.5 text-red-400 shrink-0" />
         <span className="font-mono text-xs truncate flex-1">{issue.file}</span>
-        <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground shrink-0">
-          {issue.template}
-        </span>
+        <Badge size="sm">{issue.template}</Badge>
         <span className="text-xs text-red-400 shrink-0">
           {issue.missing.length} missing
         </span>
@@ -96,9 +95,7 @@ function IssueRow({
             <p className="text-xs font-medium text-muted-foreground mb-1">Missing required fields</p>
             <div className="flex flex-wrap gap-1.5">
               {issue.missing.map((field) => (
-                <span key={field} className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-mono">
-                  {field}
-                </span>
+                <Badge key={field} variant="red" size="sm" className="font-mono">{field}</Badge>
               ))}
             </div>
           </div>
@@ -107,9 +104,7 @@ function IssueRow({
               <p className="text-xs font-medium text-muted-foreground mb-1">Extra fields</p>
               <div className="flex flex-wrap gap-1.5">
                 {issue.extra.map((field) => (
-                  <span key={field} className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-mono">
-                    {field}
-                  </span>
+                  <Badge key={field} variant="amber" size="sm" className="font-mono">{field}</Badge>
                 ))}
               </div>
             </div>
@@ -133,9 +128,7 @@ function DepIssueRow({ issue }: { issue: DepIssue }) {
   const kindColor = { orphan: "text-amber-400", self_ref: "text-red-400", cycle: "text-red-400" }[issue.kind];
   return (
     <div className="flex items-center gap-3 px-4 py-2 text-sm border border-border rounded-lg">
-      <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full bg-secondary", kindColor)}>
-        {kindLabel}
-      </span>
+      <Badge size="sm" className={kindColor}>{kindLabel}</Badge>
       <span className="font-mono text-xs text-muted-foreground">{issue.external_id}</span>
       <span className="text-xs text-foreground truncate flex-1">{issue.detail}</span>
     </div>

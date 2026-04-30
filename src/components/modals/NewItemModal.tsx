@@ -4,6 +4,8 @@ import { useCreateItem } from "@/hooks/useItems";
 import { api } from "@/lib/tauri";
 import { AgentRunModal } from "./AgentRunModal";
 import { Button } from "@/components/ui/Button";
+import { Input, Select, Textarea } from "@/components/ui/Input";
+import { ModalOverlay, ModalPanel } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -107,14 +109,8 @@ export function NewItemModal({ open, onOpenChange, repoId }: NewItemModalProps) 
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={() => onOpenChange(false)}
-    >
-      <div
-        className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalOverlay onClose={() => onOpenChange(false)}>
+      <ModalPanel className="w-full max-w-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <span className="text-sm text-muted-foreground">New item</span>
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
@@ -131,42 +127,44 @@ export function NewItemModal({ open, onOpenChange, repoId }: NewItemModalProps) 
             autoFocus
           />
 
-          <textarea
+          <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Add description..."
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm min-h-[120px] resize-y"
+            size="md"
+            className="w-full min-h-[120px]"
           />
 
           <div className="flex flex-wrap gap-3">
-            <select
+            <Select
               value={itemType}
               onChange={(e) => setItemType(e.target.value)}
-              className="bg-secondary border border-border rounded px-3 py-1.5 text-sm"
+              size="md"
             >
               {TYPES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
-            </select>
+            </Select>
 
-            <select
+            <Select
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
-              className="bg-secondary border border-border rounded px-3 py-1.5 text-sm"
+              size="md"
               disabled={useAgent}
             >
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
-            </select>
+            </Select>
 
             <div className="flex items-center gap-1">
-              <input
+              <Input
                 value={labelInput}
                 onChange={(e) => setLabelInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addLabel())}
                 placeholder="Label"
-                className="bg-secondary border border-border rounded px-2 py-1.5 text-sm w-24"
+                size="md"
+                className="w-24"
               />
             </div>
 
@@ -210,7 +208,7 @@ export function NewItemModal({ open, onOpenChange, repoId }: NewItemModalProps) 
             {useAgent ? "Start agent" : "Create issue"}
           </Button>
         </div>
-      </div>
-    </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 }

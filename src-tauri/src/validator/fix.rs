@@ -370,7 +370,7 @@ fn synthesize_frontmatter(
 /// Derive a roadmap ID from a filename.
 /// `etm-01-collective-task-system` → `ETM-01`
 /// `fw-feat-05-asset-pack`         → `FW-FEAT-05`
-/// `fw-godot-parity-audit`         → `FEAT-00`  (falls back to template prefix)
+/// `cancel-upload-processing`      → `{idPrefix}-A3F1` (stable hash, unique per file)
 fn derive_id_from_filename(file_path: &str, id_prefix: &str) -> String {
     let stem = std::path::Path::new(file_path)
         .file_stem()
@@ -388,8 +388,12 @@ fn derive_id_from_filename(file_path: &str, id_prefix: &str) -> String {
         }
     }
 
-    // Fallback: template id_prefix + "00".
-    format!("{}-00", id_prefix)
+    // No numeric part — stable 4-char hex hash of the stem so each file gets a unique ID.
+    let mut hash: u32 = 5381;
+    for b in stem.bytes() {
+        hash = hash.wrapping_mul(33).wrapping_add(b as u32);
+    }
+    format!("{}-{:04X}", id_prefix, hash & 0xFFFF)
 }
 
 #[cfg(test)]

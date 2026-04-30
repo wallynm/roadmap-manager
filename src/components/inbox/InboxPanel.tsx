@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/tauri";
 import { Bell, Check, Eye } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
 
 export function InboxPanel() {
   const queryClient = useQueryClient();
@@ -28,9 +29,7 @@ export function InboxPanel() {
           <Bell className="w-5 h-5" />
           Inbox
           {unread.length > 0 && (
-            <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-              {unread.length}
-            </span>
+            <Badge variant="primary" size="sm">{unread.length}</Badge>
           )}
         </h2>
         {unread.length > 0 && (

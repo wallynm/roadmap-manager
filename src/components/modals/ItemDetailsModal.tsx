@@ -7,6 +7,8 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { BlockNoteEditor } from "@/components/editor/BlockNoteEditor";
 import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Input";
+import { ModalOverlay, ModalPanel } from "@/components/ui/Modal";
 
 interface ItemDetailsModalProps {
   item: Item | null;
@@ -62,14 +64,8 @@ export function ItemDetailsModal({ item, onClose }: ItemDetailsModalProps) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalOverlay onClose={onClose}>
+      <ModalPanel className="w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -142,11 +138,12 @@ export function ItemDetailsModal({ item, onClose }: ItemDetailsModalProps) {
 
           {showNoteInput && (
             <div className="border-t border-border pt-4">
-              <textarea
+              <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Resolution note (optional)..."
-                className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm min-h-[80px] resize-y"
+                size="md"
+                className="w-full min-h-[80px]"
               />
             </div>
           )}
@@ -191,7 +188,7 @@ export function ItemDetailsModal({ item, onClose }: ItemDetailsModalProps) {
             </Button>
           )}
         </div>
-      </div>
-    </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 }

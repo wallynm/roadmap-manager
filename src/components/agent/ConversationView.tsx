@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Bot, User, Wrench, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/Input";
 
 export interface AgentMessage {
   role: "assistant" | "user" | "tool";
@@ -61,7 +62,7 @@ function QuestionInput({ question, onSubmit }: { question: string; onSubmit: (te
     <div className="border border-primary/30 rounded-lg p-3 space-y-2">
       <p className="text-sm text-primary">{question}</p>
       <div className="flex gap-2">
-        <input
+        <Input
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -70,7 +71,8 @@ function QuestionInput({ question, onSubmit }: { question: string; onSubmit: (te
               setValue("");
             }
           }}
-          className="flex-1 bg-secondary border border-border rounded px-3 py-1.5 text-sm"
+          size="md"
+          className="flex-1"
           placeholder="Type your answer..."
           autoFocus
         />

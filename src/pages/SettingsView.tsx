@@ -6,6 +6,7 @@ import { useLabelWeights, useScopeWeights } from "@/hooks/usePrefs";
 import { cn } from "@/lib/utils";
 import { Trash2, RefreshCw, Check, ChevronUp, ChevronDown, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Input, Select } from "@/components/ui/Input";
 import { toast } from "sonner";
 import type { Repo } from "@/types";
 import { parseRepoDisplay, setRepoDisplayColor } from "@/lib/tauri";
@@ -94,10 +95,11 @@ function ProjectPanel({ repo }: { repo: Repo }) {
             </div>
             <div className="flex-1 space-y-1">
               <label className="text-xs text-muted-foreground">Name</label>
-              <input
+              <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                size="md"
+                className="w-full"
                 placeholder="Project name"
               />
             </div>
@@ -260,25 +262,27 @@ function ScopeWeightsPanel({ repoId }: { repoId: string }) {
 
       <div className="flex items-center gap-2">
         {unconfigured.length > 0 ? (
-          <select
+          <Select
             id={inputId}
             value={newScope}
             onChange={(e) => setNewScope(e.target.value)}
-            className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring text-muted-foreground"
+            size="sm"
+            className="flex-1"
           >
             <option value="">Pick a scope to configure…</option>
             {unconfigured.map((s) => (
               <option key={s} value={s}>{scopeLabel(s)} — {s}</option>
             ))}
-          </select>
+          </Select>
         ) : (
-          <input
+          <Input
             id={inputId}
             value={newScope}
             onChange={(e) => setNewScope(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { handleAdd(newScope); } }}
             placeholder="Type a scope path…"
-            className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
+            size="sm"
+            className="flex-1"
           />
         )}
         <Button
@@ -393,19 +397,20 @@ function LabelWeightsPanel({ repoId }: { repoId: string }) {
 
       <div className="flex items-center gap-2">
         {unconfigured.length > 0 ? (
-          <select
+          <Select
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             id={inputId}
-            className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring text-muted-foreground"
+            size="sm"
+            className="flex-1"
           >
             <option value="">Pick a label to configure…</option>
             {unconfigured.map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
-          </select>
+          </Select>
         ) : (
-          <input
+          <Input
             id={inputId}
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
@@ -415,7 +420,8 @@ function LabelWeightsPanel({ repoId }: { repoId: string }) {
               }
             }}
             placeholder="Type a label name…"
-            className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
+            size="sm"
+            className="flex-1"
           />
         )}
         <Button

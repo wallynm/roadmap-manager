@@ -104,5 +104,5 @@ export function useNextItems(repoId: string, sortMode: SortMode = "score"): Scor
         const key = sortMode === "impact" ? "impactScore" : "score";
         return b[key] - a[key];
       });
-  }, [items, impactData, weights, sortMode]);
+  }, [items, impactData, weights, scopeWeights, sortMode]);
 }

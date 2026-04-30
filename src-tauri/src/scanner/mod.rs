@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -7,6 +8,100 @@ use walkdir::WalkDir;
 use crate::db::{items, repos};
 use crate::error::{AppError, AppResult};
 use crate::parser::{self, status::normalize_status};
+
+// ── folder discovery ────────────────────────────────────────────────────────
+
+static SKIP_DIRS: &[&str] = &[
+    "node_modules",
+    "target",
+    ".git",
+    "dist",
+    "build",
+    ".next",
+    "coverage",
+    "backups",
+    "__pycache__",
+    ".cache",
+    "vendor",
+    "out",
+    ".turbo",
+    ".cargo",
+    "tmp",
+    ".venv",
+];
+
+static SKIP_MD_NAMES: &[&str] = &[
+    "README.md",
+    "INDEX.md",
+    "ROADMAP.md",
+    "CHANGELOG.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "LICENSE.md",
+    "TEMPLATE.md",
+    "PROCESS.md",
+    "MIGRATION.md",
+    "MEMORY.md",
+];
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DiscoveredFolder {
+    pub path: String,
+    pub md_count: u32,
+    pub sample_files: Vec<String>,
+}
+
+pub fn discover_md_folders_in(repo_path: &Path) -> Vec<DiscoveredFolder> {
+    let mut folder_map: HashMap<String, DiscoveredFolder> = HashMap::new();
+
+    for entry in WalkDir::new(repo_path).max_depth(5).into_iter().flatten() {
+        let p = entry.path();
+        if !p.is_file() {
+            continue;
+        }
+
+        let file_name = p.file_name().unwrap_or_default().to_string_lossy();
+        if !file_name.ends_with(".md") {
+            continue;
+        }
+        if SKIP_MD_NAMES.iter().any(|s| file_name.as_ref() == *s) {
+            continue;
+        }
+
+        let rel = match p.strip_prefix(repo_path) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+
+        let should_skip = rel.components().any(|c| {
+            let s = c.as_os_str().to_string_lossy();
+            SKIP_DIRS.iter().any(|d| s.as_ref() == *d) || s.starts_with('.')
+        });
+        if should_skip {
+            continue;
+        }
+
+        let parent = rel.parent().unwrap_or(Path::new(""));
+        let parent_str = parent.to_string_lossy().to_string();
+        if parent_str.is_empty() {
+            continue; // root-level files ignored
+        }
+
+        let folder = folder_map.entry(parent_str.clone()).or_insert(DiscoveredFolder {
+            path: parent_str,
+            md_count: 0,
+            sample_files: Vec::new(),
+        });
+        folder.md_count += 1;
+        if folder.sample_files.len() < 3 {
+            folder.sample_files.push(file_name.to_string());
+        }
+    }
+
+    let mut result: Vec<DiscoveredFolder> = folder_map.into_values().collect();
+    result.sort_by(|a, b| b.md_count.cmp(&a.md_count).then(a.path.cmp(&b.path)));
+    result
+}
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScanReport {
@@ -481,8 +576,16 @@ pub async fn scan_repo(pool: &SqlitePool, repo_id: &str) -> AppResult<ScanReport
                         .format("%Y-%m-%dT%H:%M:%S")
                         .to_string(),
                 };
-                items::insert(pool, &item).await?;
-                report.added += 1;
+                match items::insert(pool, &item).await {
+                    Ok(_) => { report.added += 1; }
+                    Err(AppError::Database(ref e)) if e.to_string().contains("UNIQUE constraint") => {
+                        report.errors.push(format!(
+                            "{}: duplicate external_id '{}' — assign a unique id in the file",
+                            tf.rel_path, &item.external_id
+                        ));
+                    }
+                    Err(e) => { return Err(e); }
+                }
             }
         }
     }

@@ -199,3 +199,9 @@ export interface SubRoadmapStatus {
   in_progress: number;
   done: number;
 }
+
+export interface DiscoveredFolder {
+  path: string;
+  md_count: number;
+  sample_files: string[];
+}

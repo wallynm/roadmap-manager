@@ -6,6 +6,8 @@ import { useItems } from "@/hooks/useItems";
 import { useValidateRepo, useArchiveDryRun } from "@/hooks/useValidation";
 import { STATUS_CONFIG, cn } from "@/lib/utils";
 import { Search } from "lucide-react";
+import { Kbd } from "@/components/ui/Kbd";
+import { ModalOverlay } from "@/components/ui/Modal";
 
 const REPO_RE = /\/repos\/([^/]+)/;
 
@@ -58,10 +60,7 @@ export function CommandPalette() {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh] bg-black/60 backdrop-blur-sm"
-      onClick={() => { setOpen(false); setSearch(""); }}
-    >
+    <ModalOverlay align="top" layer="above" className="pt-[20vh]" onClose={() => { setOpen(false); setSearch(""); }}>
       <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         <Command
           className="bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
@@ -76,7 +75,7 @@ export function CommandPalette() {
               className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
               autoFocus
             />
-            <kbd className="text-xs text-muted-foreground border border-border px-1.5 py-0.5 rounded shrink-0">esc</kbd>
+            <Kbd size="sm">esc</Kbd>
           </div>
           <Command.List className="max-h-80 overflow-y-auto p-2">
             <Command.Empty className="text-sm text-muted-foreground text-center py-6">
@@ -169,6 +168,6 @@ export function CommandPalette() {
           </Command.List>
         </Command>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

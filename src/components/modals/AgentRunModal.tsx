@@ -3,6 +3,7 @@ import { useAgentRun } from "@/hooks/useAgentRun";
 import { useCreateItem } from "@/hooks/useItems";
 import { ConversationView } from "@/components/agent/ConversationView";
 import { Button } from "@/components/ui/Button";
+import { ModalOverlay, ModalPanel } from "@/components/ui/Modal";
 import { toast } from "sonner";
 
 interface AgentRunModalProps {
@@ -55,14 +56,8 @@ export function AgentRunModal({ open, onOpenChange, runId, repoId }: AgentRunMod
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={handleCancel}
-    >
-      <div
-        className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalOverlay onClose={handleCancel}>
+      <ModalPanel className="w-full max-w-2xl max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             {agent.isRunning && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
@@ -131,7 +126,7 @@ export function AgentRunModal({ open, onOpenChange, runId, repoId }: AgentRunMod
             </Button>
           )}
         </div>
-      </div>
-    </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 }

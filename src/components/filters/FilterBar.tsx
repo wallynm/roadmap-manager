@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { STATUS_CONFIG, PRIORITY_CONFIG, parseLabels } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
 import type { ActiveFilters } from "@/hooks/usePrefs";
 import type { Item, ItemStatus, Priority } from "@/types";
 import { Button } from "@/components/ui/Button";
@@ -97,15 +98,12 @@ interface ChipProps {
 
 function FilterChip({ label, onRemove }: ChipProps) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/15 text-primary border border-primary/20">
+    <Badge variant="primary" size="sm" className="border border-primary/20">
       {label}
-      <button
-        onClick={onRemove}
-        className="hover:text-foreground transition-colors"
-      >
+      <button onClick={onRemove} className="hover:text-foreground transition-colors">
         <X className="w-2.5 h-2.5" />
       </button>
-    </span>
+    </Badge>
   );
 }
 

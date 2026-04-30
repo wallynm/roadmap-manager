@@ -3,6 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Lock } from "lucide-react";
 import type { Item, Priority } from "@/types";
 import { cn, parseLabels, parseDependsOn, formatAge, PRIORITY_CONFIG } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
 
 interface ItemCardProps {
   item: Item;
@@ -87,9 +88,7 @@ export function ItemCard({ item, onClick, isGhost = false, isOverlay = false, dr
       {labels.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
           {labels.slice(0, 3).map((label) => (
-            <span key={label} className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
-              {label}
-            </span>
+            <Badge key={label} square>{label}</Badge>
           ))}
           {labels.length > 3 && (
             <span className="text-[10px] text-muted-foreground">+{labels.length - 3}</span>

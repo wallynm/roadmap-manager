@@ -5,6 +5,7 @@ import { BlockNoteEditor } from "@/components/editor/BlockNoteEditor";
 import { RefreshCw, FileText, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
 
 export function RoadmapView() {
   const { repoId } = useParams<{ repoId: string }>();
@@ -33,14 +34,9 @@ export function RoadmapView() {
           <FileText className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-medium">ROADMAP.md</span>
           {data && (
-            <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-              data.exists
-                ? "bg-emerald-500/15 text-emerald-400"
-                : "bg-amber-500/15 text-amber-400"
-            )}>
+            <Badge variant={data.exists ? "green" : "amber"}>
               {data.exists ? "exists" : "not generated"}
-            </span>
+            </Badge>
           )}
         </div>
         <button

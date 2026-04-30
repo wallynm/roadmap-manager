@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 use tauri::{AppHandle, State};
 
 use crate::db::repos;
-use crate::scanner::{self, ScanReport};
+use crate::scanner::{self, DiscoveredFolder, ScanReport};
 use crate::watcher::WatcherPool;
 
 #[derive(Serialize)]
@@ -36,7 +36,14 @@ pub async fn add_repo(
     }
 
     let cfg = config.unwrap_or_else(|| {
-        serde_json::to_string(&scanner::default_config()).unwrap_or_default()
+        // Use roadmap.json from the repo if it exists, otherwise fall back to defaults
+        let roadmap_json = repo_path.join("roadmap.json");
+        if roadmap_json.exists() {
+            std::fs::read_to_string(&roadmap_json)
+                .unwrap_or_else(|_| serde_json::to_string(&scanner::default_config()).unwrap_or_default())
+        } else {
+            serde_json::to_string(&scanner::default_config()).unwrap_or_default()
+        }
     });
 
     let repo = repos::add(&pool, &name, &path, &cfg)
@@ -188,4 +195,32 @@ pub async fn get_sub_roadmaps(
     Ok(crate::parser::checkboxes::classify_sub_roadmaps(
         repo_path, &globs,
     ))
+}
+
+#[tauri::command]
+pub async fn discover_md_folders(path: String) -> Result<Vec<DiscoveredFolder>, String> {
+    let repo_path = std::path::Path::new(&path);
+    if !repo_path.exists() {
+        return Err("Path does not exist".into());
+    }
+    Ok(scanner::discover_md_folders_in(repo_path))
+}
+
+#[tauri::command]
+pub async fn write_roadmap_json(repo_path: String, config_json: String) -> Result<(), String> {
+    let path = std::path::Path::new(&repo_path);
+    if !path.exists() {
+        return Err("Path does not exist".into());
+    }
+
+    // Deserialize into RepoConfig to validate and strip non-standard fields (e.g. display_color)
+    let config: scanner::RepoConfig =
+        serde_json::from_str(&config_json).map_err(|e| format!("Invalid config: {}", e))?;
+
+    let pretty =
+        serde_json::to_string_pretty(&config).map_err(|e| format!("Serialize error: {}", e))?;
+
+    std::fs::write(path.join("roadmap.json"), pretty).map_err(|e| e.to_string())?;
+
+    Ok(())
 }

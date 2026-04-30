@@ -9,6 +9,8 @@ import { useRepos } from "@/hooks/useRepos";
 import { BlockNoteEditor } from "@/components/editor/BlockNoteEditor";
 import { CommentList } from "@/components/comments/CommentList";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Textarea } from "@/components/ui/Input";
 import { STATUS_CONFIG, PRIORITY_CONFIG, parseLabels, parseDependsOn, parseRelatesTo, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Item, ItemStatus, Priority } from "@/types";
@@ -383,11 +385,12 @@ export function ItemView() {
           {showNoteInput && (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">Resolution note (optional)</p>
-              <textarea
+              <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Describe what was done..."
-                className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                size="md"
+                className="w-full min-h-[80px]"
                 autoFocus
               />
               <div className="flex gap-2">
@@ -492,12 +495,12 @@ export function ItemView() {
             {labels.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {labels.map((l) => (
-                  <span key={l} className="flex items-center gap-1 text-xs bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-md">
+                  <Badge key={l} square className="text-xs">
                     {l}
                     <button onClick={() => handleRemoveLabel(l)} className="hover:text-foreground transition-colors">
                       <X className="w-2.5 h-2.5" />
                     </button>
-                  </span>
+                  </Badge>
                 ))}
               </div>
             )}
