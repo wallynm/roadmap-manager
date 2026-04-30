@@ -28,10 +28,9 @@ function repoInitials(name: string): string {
 
 // ── nav sections ────────────────────────────────────────────────────────────
 const SECTIONS = [
-  { id: "general",    label: "General" },
-  { id: "repository", label: "Repository" },
-  { id: "next-up",    label: "Next Up" },
-  { id: "danger",     label: "Danger zone" },
+  { id: "general",  label: "General" },
+  { id: "next-up",  label: "Next Up" },
+  { id: "danger",   label: "Danger zone" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
@@ -40,6 +39,7 @@ function GeneralSection({ repo }: { repo: Repo }) {
   const [name, setName] = useState(repo.name);
   const [color, setColor] = useState(parseRepoDisplay(repo.config).color ?? "");
   const updateRepo = useUpdateRepo();
+  const rescanRepo = useRescanRepo();
 
   useEffect(() => {
     setName(repo.name);
@@ -57,9 +57,10 @@ function GeneralSection({ repo }: { repo: Repo }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <h2 className="text-sm font-semibold">General</h2>
 
+      {/* Appearance */}
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <div
@@ -102,39 +103,33 @@ function GeneralSection({ repo }: { repo: Repo }) {
           </Button>
         )}
       </div>
-    </div>
-  );
-}
 
-function RepositorySection({ repo }: { repo: Repo }) {
-  const rescanRepo = useRescanRepo();
-  return (
-    <div className="space-y-6">
-      <h2 className="text-sm font-semibold">Repository</h2>
-
-      <div className="rounded-lg border border-border divide-y divide-border">
-        <div className="flex items-baseline justify-between px-3 py-2 gap-4">
-          <span className="text-xs text-muted-foreground shrink-0">Path</span>
-          <span className="text-xs font-mono text-foreground truncate text-right select-text">{repo.path}</span>
+      {/* Repository */}
+      <div className="space-y-3">
+        <p className="text-xs font-medium text-muted-foreground">Repository</p>
+        <div className="rounded-lg border border-border divide-y divide-border">
+          <div className="flex items-baseline justify-between px-3 py-2 gap-4">
+            <span className="text-xs text-muted-foreground shrink-0">Path</span>
+            <span className="text-xs font-mono text-foreground truncate text-right select-text">{repo.path}</span>
+          </div>
+          <div className="flex items-baseline justify-between px-3 py-2 gap-4">
+            <span className="text-xs text-muted-foreground shrink-0">Last scan</span>
+            <span className="text-xs text-foreground select-text">{repo.last_scan ?? "Never"}</span>
+          </div>
         </div>
-        <div className="flex items-baseline justify-between px-3 py-2 gap-4">
-          <span className="text-xs text-muted-foreground shrink-0">Last scan</span>
-          <span className="text-xs text-foreground select-text">{repo.last_scan ?? "Never"}</span>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            rescanRepo.mutate(repo.id, {
+              onSuccess: (r) => toast.success(`Rescanned: +${r.added} ~${r.updated} -${r.removed}`),
+            })
+          }
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Rescan now
+        </Button>
       </div>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() =>
-          rescanRepo.mutate(repo.id, {
-            onSuccess: (r) => toast.success(`Rescanned: +${r.added} ~${r.updated} -${r.removed}`),
-          })
-        }
-      >
-        <RefreshCw className="w-3.5 h-3.5" />
-        Rescan now
-      </Button>
     </div>
   );
 }
@@ -449,9 +444,8 @@ export function SettingsModal() {
             <p className="text-sm text-muted-foreground">No project selected.</p>
           ) : (
             <>
-              {section === "general"    && <GeneralSection repo={repo} />}
-              {section === "repository" && <RepositorySection repo={repo} />}
-              {section === "next-up"    && <NextUpSection repoId={repo.id} />}
+              {section === "general"  && <GeneralSection repo={repo} />}
+              {section === "next-up"  && <NextUpSection repoId={repo.id} />}
               {section === "danger"     && <DangerSection repo={repo} onClose={() => setOpen(false)} />}
             </>
           )}
