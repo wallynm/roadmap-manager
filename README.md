@@ -13,12 +13,14 @@ Desktop app for managing multi-repo roadmaps via `.md` frontmatter files. Built 
 
 ## Download
 
-| Platform | Link |
-|----------|------|
-| macOS (Apple Silicon) | [Releases](https://github.com/wallynm/roadmap-manager/releases) |
-| macOS (Intel) | [Releases](https://github.com/wallynm/roadmap-manager/releases) |
+| Platform | Format |
+|----------|--------|
+| macOS (Apple Silicon) | `.dmg` |
+| macOS (Intel) | `.dmg` |
+| Windows (x64) | `.msi` / `.exe` |
+| Linux (x64) | `.deb` / `.AppImage` |
 
-> Releases will be published as `.dmg` files built with `pnpm tauri build`.
+→ **[Latest release](https://github.com/wallynm/roadmap-manager/releases/latest)**
 
 ## Development
 
