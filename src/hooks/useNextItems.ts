@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useItems } from "./useItems";
-import { useImpactRankingCache } from "./useValidation";
+import { useImpactRanking } from "./useValidation";
 import { useLabelWeights, useScopeWeights } from "./usePrefs";
 import type { Item } from "@/types";
 
@@ -31,7 +31,7 @@ export interface ScoredItem {
 
 export function useNextItems(repoId: string, sortMode: SortMode = "score"): ScoredItem[] {
   const { data: items } = useItems(repoId, undefined);
-  const { data: impactData } = useImpactRankingCache(repoId);
+  const { data: impactData } = useImpactRanking(repoId);
   const { weights } = useLabelWeights(repoId);
   const { weights: scopeWeights } = useScopeWeights(repoId);
 
