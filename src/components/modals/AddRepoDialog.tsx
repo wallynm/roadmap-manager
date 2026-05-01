@@ -1,6 +1,18 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { ChevronLeft, ChevronRight, Folder, FolderOpen, X } from "lucide-react";
-import { useId, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import {
+	AlertCircle,
+	CheckCircle2,
+	ChevronLeft,
+	ChevronRight,
+	Folder,
+	FolderOpen,
+	Loader2,
+	SkipForward,
+	Wand2,
+	X,
+} from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
@@ -8,19 +20,24 @@ import { Input } from "@/components/ui/Input";
 import { ModalOverlay, ModalPanel } from "@/components/ui/Modal";
 import { useAddRepo } from "@/hooks/useRepos";
 import { api } from "@/lib/tauri";
-import type { DiscoveredFolder, RepoConfig } from "@/types";
+import type { DiscoveredFolder, RepoConfig, ValidationIssue } from "@/types";
 
 interface AddRepoDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }
 
-type Step = "info" | "folders";
+type Step = "info" | "folders" | "analysis" | "fixing";
 
 interface FolderSelection extends DiscoveredFolder {
 	selected: boolean;
 	typeName: string;
 	idPrefix: string;
+}
+
+interface ProgressEntry {
+	file: string;
+	fixed: boolean;
 }
 
 function deriveName(folderPath: string): string {
@@ -42,9 +59,7 @@ function buildRepoConfig(folders: FolderSelection[]): RepoConfig {
 	const templates: RepoConfig["templates"] = {};
 
 	for (const f of folders) {
-		if (!f.selected) {
-			continue;
-		}
+		if (!f.selected) continue;
 		const key = f.typeName.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 		const prefix = (f.idPrefix || deriveIdPrefix(f.typeName)).toUpperCase();
 		templates[key] = {
@@ -172,7 +187,7 @@ interface StepFoldersProps {
 	onTypeNameChange: (idx: number, v: string) => void;
 	onIdPrefixChange: (idx: number, v: string) => void;
 	onBack: () => void;
-	onConfirm: () => void;
+	onContinue: () => void;
 	loading: boolean;
 }
 
@@ -182,7 +197,7 @@ function StepFolders({
 	onTypeNameChange,
 	onIdPrefixChange,
 	onBack,
-	onConfirm,
+	onContinue,
 	loading,
 }: StepFoldersProps) {
 	const anySelected = folders.some((f) => f.selected);
@@ -271,11 +286,245 @@ function StepFolders({
 					className="flex-1"
 					disabled={folders.length > 0 && !anySelected}
 					loading={loading}
-					onClick={onConfirm}
+					onClick={onContinue}
 				>
-					Add & Scan
+					Continue
+					<ChevronRight className="w-4 h-4 ml-1" />
 				</Button>
 			</div>
+		</div>
+	);
+}
+
+// ── Step 3 — Analysis ────────────────────────────────────────────────────────
+
+interface StepAnalysisProps {
+	repoId: string;
+	repoName: string;
+	initialAdded: number;
+	issues: ValidationIssue[];
+	onFix: () => void;
+	onSkip: () => void;
+}
+
+function StepAnalysis({
+	repoName,
+	initialAdded,
+	issues,
+	onFix,
+	onSkip,
+}: StepAnalysisProps) {
+	const needsFix = issues.length;
+
+	return (
+		<div className="space-y-4">
+			<div className="flex items-center gap-4 rounded-lg bg-muted/40 border border-border px-4 py-3">
+				<div className="text-center">
+					<div className="text-2xl font-bold tabular-nums">{initialAdded}</div>
+					<div className="text-[10px] text-muted-foreground uppercase tracking-wide">
+						imported
+					</div>
+				</div>
+				<div className="w-px h-10 bg-border" />
+				<div className="text-center">
+					<div className="text-2xl font-bold tabular-nums text-amber-500">
+						{needsFix}
+					</div>
+					<div className="text-[10px] text-muted-foreground uppercase tracking-wide">
+						need fix
+					</div>
+				</div>
+			</div>
+
+			{needsFix > 0 ? (
+				<>
+					<div className="rounded-lg border border-border divide-y divide-border max-h-52 overflow-y-auto text-xs font-mono">
+						{issues.map((issue) => (
+							<div
+								key={issue.file}
+								className="px-3 py-1.5 flex items-start gap-2 min-w-0"
+							>
+								<AlertCircle className="w-3 h-3 shrink-0 text-amber-500 mt-0.5" />
+								<div className="min-w-0">
+									<span className="truncate block text-foreground">
+										{issue.file}
+									</span>
+									{issue.missing.length > 0 && (
+										<span className="text-muted-foreground">
+											missing: {issue.missing.join(", ")}
+										</span>
+									)}
+								</div>
+							</div>
+						))}
+					</div>
+
+					<label className="flex items-start gap-2.5 rounded-lg border border-border p-3 bg-primary/5 border-primary/20">
+						<Wand2 className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+						<p className="text-xs text-muted-foreground leading-relaxed">
+							Auto-fix will synthesize{" "}
+							<code className="font-mono">id</code>,{" "}
+							<code className="font-mono">title</code> and{" "}
+							<code className="font-mono">status</code> from file content and
+							commit the changes.
+						</p>
+					</label>
+
+					<div className="flex gap-2">
+						<Button
+							variant="ghost"
+							size="lg"
+							className="flex-1"
+							onClick={onSkip}
+						>
+							<SkipForward className="w-4 h-4 mr-1" />
+							Skip fixing
+						</Button>
+						<Button variant="solid" size="lg" className="flex-1" onClick={onFix}>
+							<Wand2 className="w-3.5 h-3.5 mr-1.5" />
+							Fix & Open {repoName}
+						</Button>
+					</div>
+				</>
+			) : (
+				<Button variant="solid" size="lg" className="w-full" onClick={onSkip}>
+					Open {repoName}
+					<ChevronRight className="w-4 h-4 ml-1" />
+				</Button>
+			)}
+		</div>
+	);
+}
+
+// ── Step 3 — Fixing progress ─────────────────────────────────────────────────
+
+interface StepFixingProps {
+	repoId: string;
+	repoName: string;
+	totalIssues: number;
+	onDone: () => void;
+}
+
+function StepFixing({ repoId, repoName, totalIssues, onDone }: StepFixingProps) {
+	const [entries, setEntries] = useState<ProgressEntry[]>([]);
+	const [processedCount, setProcessedCount] = useState(0);
+	const [fixedCount, setFixedCount] = useState(0);
+	const [finished, setFinished] = useState(false);
+	const listRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		let unlistenProgress: (() => void) | undefined;
+		let unlistenDone: (() => void) | undefined;
+
+		listen<{ done: number; total: number; file: string; fixed: boolean }>(
+			"fix:progress",
+			(event) => {
+				const { done, file, fixed } = event.payload;
+				setProcessedCount(done);
+				setEntries((prev) => [...prev, { file, fixed }]);
+				if (fixed) setFixedCount((n) => n + 1);
+			},
+		).then((fn) => {
+			unlistenProgress = fn;
+		});
+
+		listen<{ fixed: number; skipped: number; files: string[] }>(
+			"fix:done",
+			() => {
+				setFinished(true);
+			},
+		).then((fn) => {
+			unlistenDone = fn;
+		});
+
+		api.fixRepo(repoId).catch(() => {
+			setFinished(true);
+		});
+
+		return () => {
+			unlistenProgress?.();
+			unlistenDone?.();
+		};
+	}, [repoId]);
+
+	useEffect(() => {
+		if (listRef.current) {
+			listRef.current.scrollTop = listRef.current.scrollHeight;
+		}
+	}, [entries]);
+
+	const pct =
+		totalIssues > 0
+			? Math.round((processedCount / totalIssues) * 100)
+			: finished
+				? 100
+				: 0;
+
+	return (
+		<div className="space-y-4">
+			<div className="space-y-1.5">
+				<div className="flex items-center justify-between text-sm">
+					<span className="text-muted-foreground">
+						{finished ? "Done" : "Fixing frontmatter…"}
+					</span>
+					<span className="font-mono text-xs tabular-nums text-muted-foreground">
+						{fixedCount} fixed
+						{processedCount > 0 && processedCount > fixedCount && (
+							<span className="ml-1 opacity-60">
+								· {processedCount - fixedCount} skipped
+							</span>
+						)}
+					</span>
+				</div>
+				<div className="h-1.5 rounded-full bg-muted overflow-hidden">
+					<div
+						className="h-full rounded-full bg-primary transition-all duration-100"
+						style={{ width: `${finished ? 100 : pct}%` }}
+					/>
+				</div>
+			</div>
+
+			<div
+				ref={listRef}
+				className="rounded-lg border border-border divide-y divide-border max-h-52 overflow-y-auto text-xs font-mono"
+			>
+				{entries.length === 0 && !finished && (
+					<div className="p-3 text-muted-foreground flex items-center gap-2">
+						<Loader2 className="w-3.5 h-3.5 animate-spin" />
+						Starting…
+					</div>
+				)}
+				{entries.map((entry, i) =>
+					entry.fixed ? (
+						<div
+							key={`${entry.file}-${i}`}
+							className="px-3 py-1.5 flex items-center gap-2 truncate"
+						>
+							<CheckCircle2 className="w-3 h-3 shrink-0 text-green-500" />
+							<span className="truncate text-foreground">{entry.file}</span>
+						</div>
+					) : null,
+				)}
+			</div>
+
+			<Button
+				variant="solid"
+				size="lg"
+				className="w-full"
+				disabled={!finished}
+				onClick={onDone}
+			>
+				{finished ? (
+					<>
+						Open {repoName}
+					</>
+				) : (
+					<>
+						<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+						Please wait…
+					</>
+				)}
+			</Button>
 		</div>
 	);
 }
@@ -291,18 +540,26 @@ export function AddRepoDialog({
 	const [step, setStep] = useState<Step>("info");
 	const [folders, setFolders] = useState<FolderSelection[]>([]);
 	const [discovering, setDiscovering] = useState(false);
+	const [repoId, setRepoId] = useState("");
+	const [repoName, setRepoName] = useState("");
+	const [initialAdded, setInitialAdded] = useState(0);
+	const [issues, setIssues] = useState<ValidationIssue[]>([]);
+	const [analyzing, setAnalyzing] = useState(false);
 	const addRepo = useAddRepo();
 	const navigate = useNavigate();
 
-	if (!isOpen) {
-		return null;
-	}
+	if (!isOpen) return null;
 
 	const reset = () => {
 		setPath("");
 		setName("");
 		setStep("info");
 		setFolders([]);
+		setRepoId("");
+		setRepoName("");
+		setInitialAdded(0);
+		setIssues([]);
+		setAnalyzing(false);
 	};
 
 	const handleClose = () => {
@@ -321,9 +578,7 @@ export function AddRepoDialog({
 	};
 
 	const handleContinue = async () => {
-		if (!path || !name) {
-			return;
-		}
+		if (!path || !name) return;
 		setDiscovering(true);
 		try {
 			const discovered = await api.discoverMdFolders(path);
@@ -354,11 +609,8 @@ export function AddRepoDialog({
 	const handleTypeNameChange = (idx: number, v: string) => {
 		setFolders((prev) =>
 			prev.map((f, i) => {
-				if (i !== idx) {
-					return f;
-				}
-				const newIdPrefix = deriveIdPrefix(v);
-				return { ...f, typeName: v, idPrefix: newIdPrefix };
+				if (i !== idx) return f;
+				return { ...f, typeName: v, idPrefix: deriveIdPrefix(v) };
 			}),
 		);
 	};
@@ -369,46 +621,86 @@ export function AddRepoDialog({
 		);
 	};
 
-	const handleConfirm = () => {
+	// Step 2 → 3: add repo then run validation to show analysis
+	const handleContinueToAnalysis = () => {
 		const config = buildRepoConfig(folders);
 		const configJson = JSON.stringify(config);
 
+		setAnalyzing(true);
 		addRepo.mutate(
 			{ name, path, config: configJson },
 			{
-				onSuccess: async ([repo, report]) => {
-					// Write roadmap.json to the repo
+				onSuccess: async ([repo, scanReport]) => {
 					try {
 						await api.writeRoadmapJson(path, configJson);
 					} catch {
-						// Non-fatal: DB config is already saved
+						// Non-fatal
 					}
-					toast.success(`Added ${repo.name}: ${report.added} items imported`);
-					navigate(`/repos/${repo.id}`);
-					handleClose();
+					setRepoId(repo.id);
+					setRepoName(repo.name);
+
+					try {
+						const validation = await api.validateRepo(repo.id);
+						// Use validation.passing as the indexed count — it reflects all files
+						// on disk that have complete frontmatter, regardless of whether they
+						// were new inserts or pre-existing updates in the DB.
+						setInitialAdded(validation.passing);
+						setIssues(validation.issues);
+					} catch {
+						setInitialAdded(scanReport.added + scanReport.updated);
+						setIssues([]);
+					}
+					setAnalyzing(false);
+					setStep("analysis");
 				},
 				onError: (err) => {
+					setAnalyzing(false);
 					toast.error(`Failed: ${err}`);
 				},
 			},
 		);
 	};
 
+	const handleSkipFix = () => {
+		navigate(`/repos/${repoId}`);
+		handleClose();
+	};
+
+	const handleStartFix = () => {
+		setStep("fixing");
+	};
+
+	const handleFixingDone = () => {
+		navigate(`/repos/${repoId}`);
+		handleClose();
+	};
+
+	const stepLabel =
+		step === "folders"
+			? "Step 2 of 3 — Managed folders"
+			: step === "analysis" || step === "fixing"
+				? "Step 3 of 3 — Scan results"
+				: undefined;
+
+	const isLocked = step === "fixing";
+
 	return (
-		<ModalOverlay onClose={handleClose}>
+		<ModalOverlay onClose={isLocked ? undefined : handleClose}>
 			<ModalPanel className="w-full max-w-md p-6">
 				<div className="flex items-center justify-between mb-6">
 					<div>
 						<h3 className="text-lg font-semibold">Add Repository</h3>
-						{step === "folders" && (
+						{stepLabel && (
 							<p className="text-xs text-muted-foreground mt-0.5">
-								Step 2 of 2 — Managed folders
+								{stepLabel}
 							</p>
 						)}
 					</div>
-					<Button variant="ghost" size="icon" onClick={handleClose}>
-						<X className="w-4 h-4" />
-					</Button>
+					{!isLocked && (
+						<Button variant="ghost" size="icon" onClick={handleClose}>
+							<X className="w-4 h-4" />
+						</Button>
+					)}
 				</div>
 
 				{step === "info" && (
@@ -430,8 +722,28 @@ export function AddRepoDialog({
 						onTypeNameChange={handleTypeNameChange}
 						onIdPrefixChange={handleIdPrefixChange}
 						onBack={() => setStep("info")}
-						onConfirm={handleConfirm}
-						loading={addRepo.isPending}
+						onContinue={handleContinueToAnalysis}
+						loading={analyzing || addRepo.isPending}
+					/>
+				)}
+
+				{step === "analysis" && (
+					<StepAnalysis
+						repoId={repoId}
+						repoName={repoName}
+						initialAdded={initialAdded}
+						issues={issues}
+						onFix={handleStartFix}
+						onSkip={handleSkipFix}
+					/>
+				)}
+
+				{step === "fixing" && (
+					<StepFixing
+						repoId={repoId}
+						repoName={repoName}
+						totalIssues={issues.length}
+						onDone={handleFixingDone}
 					/>
 				)}
 			</ModalPanel>

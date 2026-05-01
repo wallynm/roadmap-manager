@@ -19,6 +19,7 @@ pub fn fix_issues(
     repo_path: &Path,
     config: &RepoConfig,
     issues: &[ValidationIssue],
+    on_progress: impl Fn(u32, u32, &str, bool),
 ) -> FixReport {
     let mut report = FixReport {
         fixed: 0,
@@ -30,29 +31,41 @@ pub fn fix_issues(
     fix_duplicate_ids(repo_path, config, &template_files, &mut report);
     migrate_area_to_labels(config, &template_files, &mut report);
 
+    let total = issues.len() as u32;
+    let mut done: u32 = 0;
+
     for issue in issues {
+        macro_rules! skip {
+            () => {{
+                report.skipped += 1;
+                done += 1;
+                on_progress(done, total, &issue.file, false);
+                continue;
+            }};
+        }
+        macro_rules! fixed {
+            () => {{
+                report.fixed += 1;
+                report.files.push(issue.file.clone());
+                done += 1;
+                on_progress(done, total, &issue.file, true);
+                continue;
+            }};
+        }
+
         let template = match config.templates.get(&issue.template) {
             Some(t) => t,
-            None => {
-                report.skipped += 1;
-                continue;
-            }
+            None => skip!(),
         };
 
         let tf = match template_files.iter().find(|f| f.rel_path == issue.file) {
             Some(f) => f,
-            None => {
-                report.skipped += 1;
-                continue;
-            }
+            None => skip!(),
         };
 
         let raw = match std::fs::read_to_string(&tf.abs_path) {
             Ok(c) => c,
-            Err(_) => {
-                report.skipped += 1;
-                continue;
-            }
+            Err(_) => skip!(),
         };
 
         // If the YAML is broken (e.g. unquoted colon or backtick in value), repair
@@ -61,29 +74,23 @@ pub fn fix_issues(
             match repair_yaml(&raw) {
                 Some(repaired) => {
                     if std::fs::write(&tf.abs_path, &repaired).is_ok() {
-                        report.fixed += 1;
-                        report.files.push(issue.file.clone());
+                        fixed!();
                     } else {
-                        report.skipped += 1;
+                        skip!();
                     }
-                    continue;
                 }
                 None => {
                     // No frontmatter at all — synthesize minimal one from file content.
                     match synthesize_frontmatter(&raw, &issue.file, &issue.template, template) {
                         Some(new_content) => {
                             if std::fs::write(&tf.abs_path, &new_content).is_ok() {
-                                report.fixed += 1;
-                                report.files.push(issue.file.clone());
+                                fixed!();
                             } else {
-                                report.skipped += 1;
+                                skip!();
                             }
                         }
-                        None => {
-                            report.skipped += 1;
-                        }
+                        None => skip!(),
                     }
-                    continue;
                 }
             }
         } else {
@@ -92,10 +99,7 @@ pub fn fix_issues(
 
         let parsed = match parser::parse(&content) {
             Ok(p) => p,
-            Err(_) => {
-                report.skipped += 1;
-                continue;
-            }
+            Err(_) => skip!(),
         };
 
         let mut yaml = parsed.yaml.clone();
@@ -117,7 +121,32 @@ pub fn fix_issues(
                     }
                 }
 
-                let default_val = derive_default(field, &template.defaults, repo_path, &tf.abs_path, &parsed.body);
+                // derive_default handles dates, labels, depends-on.
+                // Required scalar fields that it can't fill are handled here.
+                let default_val = match field.as_str() {
+                    "type" => Some(serde_yaml::Value::String(issue.template.clone())),
+                    "id" => Some(serde_yaml::Value::String(
+                        derive_id_from_filename(&tf.rel_path, &template.id_prefix),
+                    )),
+                    "title" => {
+                        let title = parsed
+                            .body
+                            .lines()
+                            .find(|l| l.starts_with("# "))
+                            .map(|l| l.trim_start_matches('#').trim().to_string())
+                            .filter(|s| !s.is_empty())
+                            .unwrap_or_else(|| {
+                                std::path::Path::new(&tf.rel_path)
+                                    .file_stem()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or("Untitled")
+                                    .replace('-', " ")
+                                    .replace('_', " ")
+                            });
+                        Some(serde_yaml::Value::String(title))
+                    }
+                    _ => derive_default(field, &template.defaults, repo_path, &tf.abs_path, &parsed.body),
+                };
                 if let Some(val) = default_val {
                     mapping.insert(key, val);
                     changed = true;
@@ -126,20 +155,17 @@ pub fn fix_issues(
         }
 
         if !changed {
-            report.skipped += 1;
-            continue;
+            skip!();
         }
 
         let new_fm = render_yaml_frontmatter(&yaml, &template.frontmatter_fields);
         let new_content = format!("---\n{}\n---\n\n{}\n", new_fm, parsed.body.trim_end());
 
-        if let Err(_) = std::fs::write(&tf.abs_path, &new_content) {
-            report.skipped += 1;
-            continue;
+        if std::fs::write(&tf.abs_path, &new_content).is_err() {
+            skip!();
         }
 
-        report.fixed += 1;
-        report.files.push(issue.file.clone());
+        fixed!();
     }
 
     report
@@ -481,11 +507,24 @@ fn synthesize_frontmatter(
     item_type: &str,
     template: &crate::scanner::TemplateConfig,
 ) -> Option<String> {
-    // Title: first H1 heading, falling back to the filename slug.
-    let title_raw = content
-        .lines()
-        .find(|l| l.starts_with("# "))
-        .map(|l| l.trim_start_matches('#').trim().to_string())
+    let h1_line = content.lines().find(|l| l.starts_with("# "));
+
+    // Title: strip the "# " prefix and any ID prefix (e.g. "RW-01 — ").
+    let title_raw = h1_line
+        .map(|l| {
+            let heading = l.trim_start_matches('#').trim();
+            // If the heading starts with an ID like "RW-01 — ...", strip it for the title.
+            if let Some(id) = extract_id_from_heading(heading) {
+                heading
+                    .trim_start_matches(id.as_str())
+                    .trim_start_matches(|c: char| c == ' ' || c == '—' || c == '–' || c == '-')
+                    .trim()
+                    .to_string()
+            } else {
+                heading.to_string()
+            }
+        })
+        .filter(|s| !s.is_empty())
         .unwrap_or_else(|| {
             std::path::Path::new(file_path)
                 .file_stem()
@@ -494,38 +533,99 @@ fn synthesize_frontmatter(
                 .replace('-', " ")
         });
 
-    let id = derive_id_from_filename(file_path, &template.id_prefix);
+    // ID: prefer one found in the H1 heading, fall back to filename derivation.
+    let id = h1_line
+        .and_then(|l| extract_id_from_heading(l.trim_start_matches('#').trim()))
+        .unwrap_or_else(|| derive_id_from_filename(file_path, &template.id_prefix));
 
-    let status = template
-        .defaults
-        .get("status")
-        .and_then(|v| v.as_str())
-        .unwrap_or("todo")
-        .to_string();
+    // Status: prefer one found in the body, fall back to the template default.
+    let status = extract_status_from_body(content).unwrap_or_else(|| {
+        template
+            .defaults
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("todo")
+            .to_string()
+    });
+
+    // Depends-on: extract from body using the existing parser helper.
+    let depends_on = parser::extract_deps_from_body(content);
 
     let title_yaml = writer::yaml_value_pub(&title_raw);
 
-    let fm = format!(
-        "---\nid: {id}\ntitle: {title_yaml}\ntype: {tp}\nstatus: {status}\n---\n\n{body}",
-        id = id,
-        title_yaml = title_yaml,
-        tp = item_type,
-        status = status,
-        body = content.trim_start(),
-    );
+    let mut lines = vec![
+        format!("id: {}", id),
+        format!("title: {}", title_yaml),
+        format!("type: {}", item_type),
+        format!("status: {}", status),
+    ];
 
+    if !depends_on.is_empty() {
+        lines.push("depends-on:".to_string());
+        for dep in &depends_on {
+            lines.push(format!("  - {}", dep));
+        }
+    }
+
+    let fm = format!("---\n{}\n---\n\n{}", lines.join("\n"), content.trim_start());
     Some(fm)
 }
 
+/// Extract an ID token from the start of a heading string.
+/// Handles `RW-01 — ...` → `RW-01` and `L01 — ...` → `L01`.
+fn extract_id_from_heading(heading: &str) -> Option<String> {
+    use std::sync::LazyLock;
+    use regex::Regex;
+
+    // Matches IDs at the start of the heading followed by a separator (—, –, -, space).
+    // Covers: "RW-01", "L01", "FW-FEAT-05", but not plain words like "ROADMAP".
+    static RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+|[A-Z]+\d+)\s*(?:[—–]|(?:-\s))").unwrap()
+    });
+
+    RE.captures(heading)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
+}
+
+/// Extract a status value from body text that uses the informal bold/blockquote format.
+/// Handles: `> **Status:** ✅ Complete` and `**Status:** \`✅ shipped\` (commits...)`.
+fn extract_status_from_body(content: &str) -> Option<String> {
+    for line in content.lines() {
+        let trimmed = line.trim().trim_start_matches('>').trim();
+        if !trimmed.starts_with("**Status:**") {
+            continue;
+        }
+        let raw = trimmed.trim_start_matches("**Status:**").trim();
+        // Cut off parenthetical suffixes first, then strip surrounding backticks.
+        let cleaned = raw
+            .splitn(2, '(')
+            .next()
+            .unwrap_or(raw)
+            .trim()
+            .trim_matches('`')
+            .trim()
+            .to_string();
+        if !cleaned.is_empty() {
+            return Some(cleaned);
+        }
+    }
+    None
+}
+
 /// Derive a roadmap ID from a filename.
+/// `rw-01-foundation`              → `RW-01`
 /// `etm-01-collective-task-system` → `ETM-01`
 /// `fw-feat-05-asset-pack`         → `FW-FEAT-05`
+/// `l01-complete-episode`          → `L01`  (letter prefix fused with leading number)
+/// `01-traits-core`                → `{idPrefix}-01` (leading bare number, use template prefix)
 /// `cancel-upload-processing`      → `{idPrefix}-A3F1` (stable hash, unique per file)
 fn derive_id_from_filename(file_path: &str, id_prefix: &str) -> String {
     let stem = std::path::Path::new(file_path)
         .file_stem()
         .and_then(|s| s.to_str())
-        .unwrap_or("");
+        .unwrap_or("")
+        .to_lowercase();
 
     let parts: Vec<&str> = stem.split('-').collect();
 
@@ -535,6 +635,21 @@ fn derive_id_from_filename(file_path: &str, id_prefix: &str) -> String {
             let prefix = parts[..num_idx].join("-").to_uppercase();
             let num = parts[num_idx];
             return format!("{}-{}", prefix, num);
+        }
+        // Leading bare number (e.g. "01-traits-core"): prepend the template id prefix.
+        return format!("{}-{}", id_prefix, parts[0]);
+    }
+
+    // Check for a fused letter+digit token like "l01" or "rw02" at the start.
+    if let Some(first) = parts.first() {
+        use std::sync::LazyLock;
+        use regex::Regex;
+        static FUSED: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^([a-z]+)(\d+)$").unwrap());
+        if let Some(caps) = FUSED.captures(first) {
+            let letters = caps.get(1).unwrap().as_str().to_uppercase();
+            let digits = caps.get(2).unwrap().as_str();
+            return format!("{}{}", letters, digits);
         }
     }
 
@@ -593,5 +708,103 @@ mod tests {
             }
             other => panic!("expected Sequence, got {:?}", other),
         }
+    }
+
+    // ── extract_id_from_heading ────────────────────────────────────────────────
+
+    #[test]
+    fn heading_id_hyphen_format() {
+        assert_eq!(
+            extract_id_from_heading("RW-01 — engine-world: Foundation"),
+            Some("RW-01".to_string())
+        );
+    }
+
+    #[test]
+    fn heading_id_fused_format() {
+        assert_eq!(
+            extract_id_from_heading("L01 — Completar Episode Struct"),
+            Some("L01".to_string())
+        );
+    }
+
+    #[test]
+    fn heading_id_plain_words_no_match() {
+        // "ROADMAP ITEM 01" has no ID at the start — should return None.
+        assert_eq!(
+            extract_id_from_heading("ROADMAP ITEM 01 — Traits as core scoring factor"),
+            None
+        );
+    }
+
+    #[test]
+    fn heading_id_multi_part() {
+        assert_eq!(
+            extract_id_from_heading("FW-FEAT-05 — Asset pack system"),
+            Some("FW-FEAT-05".to_string())
+        );
+    }
+
+    // ── extract_status_from_body ───────────────────────────────────────────────
+
+    #[test]
+    fn status_blockquote_complete() {
+        let body = "> **Status:** ✅ Complete\n> **Depends on:** —";
+        assert_eq!(
+            extract_status_from_body(body),
+            Some("✅ Complete".to_string())
+        );
+    }
+
+    #[test]
+    fn status_backtick_shipped_with_annotation() {
+        let body = "**Status:** `✅ shipped` (commits `a087694`..`aee1fb2`, 2026-04-24)";
+        assert_eq!(
+            extract_status_from_body(body),
+            Some("✅ shipped".to_string())
+        );
+    }
+
+    #[test]
+    fn status_blockquote_planned() {
+        let body = "> **Status:** 📋 Planned";
+        assert_eq!(
+            extract_status_from_body(body),
+            Some("📋 Planned".to_string())
+        );
+    }
+
+    #[test]
+    fn status_none_when_absent() {
+        let body = "Some body text with no status field.";
+        assert_eq!(extract_status_from_body(body), None);
+    }
+
+    // ── derive_id_from_filename ────────────────────────────────────────────────
+
+    #[test]
+    fn filename_id_leading_number() {
+        // "01-traits-core.md" with prefix "ENG" → "ENG-01"
+        assert_eq!(derive_id_from_filename("roadmap/engine/01-traits-core.md", "ENG"), "ENG-01");
+    }
+
+    #[test]
+    fn filename_id_fused_letter_digits() {
+        // "L01-complete-episode-struct.md" → "L01"
+        assert_eq!(derive_id_from_filename("roadmap/lore/L01-complete-episode-struct.md", "LOR"), "L01");
+    }
+
+    #[test]
+    fn filename_id_standard_prefix_number() {
+        // "RW-01-foundation.md" → "RW-01"
+        assert_eq!(derive_id_from_filename("roadmap/engine-world/RW-01-foundation.md", "ENG"), "RW-01");
+    }
+
+    #[test]
+    fn filename_id_no_number_uses_hash() {
+        // "cancel-upload-processing.md" → "ENG-XXXX" (hash, just check prefix)
+        let id = derive_id_from_filename("docs/cancel-upload-processing.md", "ENG");
+        assert!(id.starts_with("ENG-"), "expected ENG- prefix, got {id}");
+        assert_eq!(id.len(), 8, "expected 8-char hash ID, got {id}");
     }
 }

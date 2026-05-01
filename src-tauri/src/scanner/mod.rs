@@ -75,7 +75,9 @@ pub fn discover_md_folders_in(repo_path: &Path) -> Vec<DiscoveredFolder> {
 
         let should_skip = rel.components().any(|c| {
             let s = c.as_os_str().to_string_lossy();
-            SKIP_DIRS.iter().any(|d| s.as_ref() == *d) || s.starts_with('.')
+            SKIP_DIRS.iter().any(|d| s.as_ref() == *d)
+                || s.starts_with('.')
+                || s.starts_with('_')
         });
         if should_skip {
             continue;
@@ -388,10 +390,10 @@ pub fn derive_scope(file_path: &str, template_dir: &str) -> String {
         (false, false) => format!("{}/{}", prefix_parts.join("/"), subdir),
     };
 
-    // When scope would be empty and the template dir is a multi-component path
-    // (e.g. "docs/techdebt"), use its last segment so sibling template dirs
-    // produce distinct scopes in the sidebar instead of all collapsing to "".
-    if scope.is_empty() && td_len > 1 {
+    // When scope would be empty, use the last segment of the template dir.
+    // Handles both single-component dirs ("discussion" → "discussion") and
+    // multi-component dirs ("docs/techdebt" → "techdebt").
+    if scope.is_empty() {
         return td_components[td_len - 1].to_string();
     }
 
@@ -477,6 +479,10 @@ pub fn walk_template_files(
                     .unwrap_or(path)
                     .to_string_lossy()
                     .to_string();
+                // Skip any file whose relative path contains a _-prefixed component
+                if rel_path.split('/').any(|c| c.starts_with('_')) {
+                    continue;
+                }
                 files.push(TemplateFile {
                     rel_path,
                     abs_path: path.to_path_buf(),
@@ -708,7 +714,7 @@ mod tests {
 
     #[test]
     fn scope_root_file() {
-        assert_eq!(derive_scope("roadmaps/feat-a.md", "roadmaps"), "");
+        assert_eq!(derive_scope("roadmaps/feat-a.md", "roadmaps"), "roadmaps");
     }
 
     #[test]
@@ -736,7 +742,7 @@ mod tests {
 
     #[test]
     fn scope_template_dir_at_root() {
-        assert_eq!(derive_scope("features/feat-a.md", "features"), "");
+        assert_eq!(derive_scope("features/feat-a.md", "features"), "features");
     }
 
     #[test]
